@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BarnardValidation, BarnardMethod, Blink, CometWalkthrough, WorkedExampleLink, verifiedBarnardFrames } from "./guided-observations";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import orion from "../public/observations/orion-composite.json";
 
 type Target = {
   id: string;
@@ -263,6 +264,7 @@ const pageCopy: Record<Exclude<View, "home">, { title: string; intro: string }> 
 
 export default function Explorer({ view }: { view: View }) {
   const [barnardOpen, setBarnardOpen] = useState(false);
+  const [showComposite, setShowComposite] = useState(true);
   const [targets, setTargets] = useState<Target[]>([]);
   const [target, setTarget] = useState<Target | null>(null);
   const [observations, setObservations] = useState<Observation[]>([]);
@@ -475,7 +477,10 @@ export default function Explorer({ view }: { view: View }) {
     <div className="context-bar">
       <div className="context-target">
         <label htmlFor="target-select">Sky field</label>
-        <select id="target-select" value={target?.id ?? ""} disabled={serviceState !== "ready" || targets.length === 0} onChange={(event) => void chooseTarget(event.target.value)}>
+        <select id="target-select" value={target?.id ?? ""} disabled={serviceState !== "ready" || targets.length === 0} onChange={(event) => {
+          if (view === "home") setShowComposite(false);
+          void chooseTarget(event.target.value);
+        }}>
           {!targets.length && <option value="">{serviceState === "loading" ? "Loading catalog…" : "No targets available"}</option>}
           {targets.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
@@ -499,38 +504,74 @@ export default function Explorer({ view }: { view: View }) {
               </p>
               <Link className="home-cta" href="/explorer">Explore observations</Link>
             </div>
-            <figure className="home-visual">
-              {frame && target && !previewFailed ? (
-                <img
-                  key={frame.id}
-                  src={previewUrl(target.id, frame.id)}
-                  alt={`SPHEREx ${frame.release} preview of ${target.name}, observed ${formatDate(frame.observed_at)}.`}
-                  onError={() => setPreviewFailed(true)}
-                />
-              ) : (
-                <p className="home-preview-status" role="status">
-                  {loadingObservations || serviceState === "loading" ? "Loading observation…" : "Preview unavailable"}
-                </p>
-              )}
-              {frame && target && (
-                <figcaption className="home-image-caption">
-                  <strong>{target.name}</strong>
-                  <time dateTime={frame.observed_at}>{formatDate(frame.observed_at)}</time>
-                  <span>SPHEREx {frame.release} · {frame.channel.replace("SPHEREx-", "")} · {frame.wavelength_min_um.toFixed(2)}–{frame.wavelength_max_um.toFixed(2)} μm</span>
-                  <Link href={viewLink("explorer", target.id, frame.channel, frame.id)}>Open this exposure <span aria-hidden="true">↗</span></Link>
+            {showComposite ? (
+              <figure id="home-image" className="home-visual home-composite">
+                <div className="home-composite-plate">
+                  <img
+                    src={`/observations/${orion.image}`}
+                    width={orion.size_px[0]}
+                    height={orion.size_px[1]}
+                    alt="False-color infrared view of the Orion Nebula. Reddish clouds surround a bright core, with stars scattered across the field."
+                  />
+                </div>
+                <figcaption className="home-composite-caption">
+                  <span>{orion.release} · False color</span>
+                  <strong>{orion.title}</strong>
+                  <ul aria-label="Color and infrared wavelength">
+                    {orion.bands.map((band) => (
+                      <li key={band.color} className={`wavelength-${band.color.toLowerCase()}`}>
+                        {band.color} <span>{band.wavelength_um.toFixed(3)} μm</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p>Three All-Sky Cube bands, with brightness scaled for display. Dark gaps mark missing coverage.</p>
+                  <Link href="/explorer?target=orion-nebula">Explore Orion exposures <span aria-hidden="true">↗</span></Link>
+                  <div className="home-composite-sources">
+                    <a href={orion.release_url}>Source release</a>
+                    <a href="/observations/orion-composite.json">Processing record (JSON)</a>
+                  </div>
                 </figcaption>
-              )}
-            </figure>
-            {frame && (
+              </figure>
+            ) : (
+              <figure id="home-image" className="home-visual">
+                {frame && target && !previewFailed ? (
+                  <img
+                    key={frame.id}
+                    src={previewUrl(target.id, frame.id)}
+                    alt={`SPHEREx ${frame.release} preview of ${target.name}, observed ${formatDate(frame.observed_at)}.`}
+                    onError={() => setPreviewFailed(true)}
+                  />
+                ) : (
+                  <p className="home-preview-status" role="status">
+                    {loadingObservations || serviceState === "loading" ? "Loading observation…" : "Preview unavailable"}
+                  </p>
+                )}
+                {frame && target && (
+                  <figcaption className="home-image-caption">
+                    <strong>{target.name}</strong>
+                    <time dateTime={frame.observed_at}>{formatDate(frame.observed_at)}</time>
+                    <span>SPHEREx {frame.release} · {frame.channel.replace("SPHEREx-", "")} · {frame.wavelength_min_um.toFixed(2)}–{frame.wavelength_max_um.toFixed(2)} μm</span>
+                    <Link href={viewLink("explorer", target.id, frame.channel, frame.id)}>Open this exposure <span aria-hidden="true">↗</span></Link>
+                  </figcaption>
+                )}
+              </figure>
+            )}
+            <button
+              type="button"
+              className="home-image-toggle"
+              aria-controls="home-image"
+              onClick={() => setShowComposite((value) => !value)}
+            >
+              {showComposite ? "Show a single exposure" : "Show the Orion composite"}
+            </button>
+            {!showComposite && frame && (
               <dl className="home-facts" aria-label="Selected observation details">
                 <div><dt>Data release</dt><dd>{frame.release}</dd></div>
                 <div><dt>Observation sequence</dt><dd>{channelObservations.length} {frame.channel.replace("SPHEREx-", "")} frames</dd></div>
                 <div><dt>Detector coverage</dt><dd>{frame.wavelength_min_um.toFixed(2)}–{frame.wavelength_max_um.toFixed(2)} μm</dd></div>
               </dl>
             )}
-            <p className="home-caveat">
-              Brightness is scaled for display.
-            </p>
+            {!showComposite && <p className="home-caveat">Brightness is scaled for display.</p>}
           </section>
           <section className="home-fields" aria-labelledby="home-fields-title">
             <h2 id="home-fields-title">Browse sky fields</h2>
