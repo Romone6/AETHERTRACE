@@ -289,52 +289,7 @@ def _cutout_inspection(observation: dict[str, Any], target_info: dict[str, Any])
 
 
 @app.get("/api/preview")
-def get_preview(
-    target: str = Query(...),
-    observation_id: str = Query(...),
-    size: float = Query(0.05, gt=0, le=0.1),
-):
-    """Render a display-only PNG preview from an archive FITS IMAGE extension."""
-    import numpy as np
-    from astropy.io import fits
-    from PIL import Image
-
-    fits_response = get_cutout(target, observation_id, size)
-    try:
-        with fits.open(io.BytesIO(fits_response.body), memmap=False) as hdus:
-            image_hdu = next((hdu for hdu in hdus if hdu.name.upper() == "IMAGE" and hdu.data is not None), None)
-            if image_hdu is None:
-                raise ValueError("FITS product has no IMAGE extension")
-            pixels = np.asarray(image_hdu.data, dtype=np.float32)
-            finite = np.isfinite(pixels)
-            if pixels.ndim != 2 or not finite.any():
-                raise ValueError("FITS IMAGE extension has no finite 2D pixels")
-            low, high = np.nanpercentile(pixels[finite], [1, 99.5])
-            if not np.isfinite(low) or not np.isfinite(high) or high <= low:
-                high = low + 1
-            scaled = np.clip((pixels - low) / (high - low), 0, 1)
-            stretched = np.arcsinh(10 * scaled) / np.arcsinh(10)
-            grayscale = np.where(finite, stretched * 255, 0).astype(np.uint8)
-            preview = Image.fromarray(grayscale).resize(
-                (grayscale.shape[1] * 8, grayscale.shape[0] * 8),
-                resample=Image.Resampling.NEAREST,
-            )
-            output = io.BytesIO()
-            preview.save(output, format="PNG", optimize=True)
-    except HTTPException:
-        raise
-    except Exception as error:
-        raise HTTPException(502, "IRSA FITS image could not be rendered") from error
-    return Response(output.getvalue(), media_type="image/png", headers={
-        "Cache-Control": "public, max-age=86400",
-        "X-Source-URL": fits_response.headers["X-Source-URL"],
-        "X-Display-Stretch": "percentile-1-99.5-asinh",
-        "X-Scientific-Use": "visual-preview-only",
-    })
-
-
-@app.get("/api/preview")
-def get_preview(target: str = Query(...), observation_id: str = Query(...), size: float = Query(0.05, gt=0, le=0.1)):
+def get_preview(target: str = Query(...), observation_id: str = Query(...), size: float = Query(DEFAULT_CUTOUT_SIZE, gt=0, le=0.1)):
     """Return a labeled display preview; this is not photometry or a change measurement."""
     import numpy as np
     from astropy.io import fits
@@ -356,7 +311,7 @@ def get_preview(target: str = Query(...), observation_id: str = Query(...), size
             scaled = np.clip((pixels - low) / (high - low), 0, 1)
             stretched = np.arcsinh(10 * scaled) / np.arcsinh(10)
             grayscale = np.where(finite, stretched * 255, 0).astype(np.uint8)
-            preview = Image.fromarray(grayscale, mode="L").resize(
+            preview = Image.fromarray(grayscale).resize(
                 (max(1, grayscale.shape[1] * 8), max(1, grayscale.shape[0] * 8)),
                 resample=Image.Resampling.NEAREST,
             )
