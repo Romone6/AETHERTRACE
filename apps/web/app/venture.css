@@ -676,3 +676,35 @@
   .page-heading > div > p:last-child { font-size: 14px; }
   .archive-mobile-record summary { padding-bottom: 5px; }
 }
+
+.comet-image img.comet-coverage { position: absolute; inset: 0; pointer-events: none; }
+.comet-past-position {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  transform: translate(-50%, -50%);
+  border: 1px solid #111827;
+  border-radius: 50%;
+  background: #fff0a5;
+  pointer-events: none;
+}
+.comet-overlays { display: flex; flex-wrap: wrap; gap: 0 16px; }
+.comet-overlays label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  color: var(--navy);
+  font-size: 13px;
+}
+.comet-overlays input { accent-color: var(--blue); }
+.comet-scale {
+  display: grid;
+  gap: 5px;
+  max-width: 270px;
+  margin-top: 14px;
+  color: #43536a;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.comet-scale-ramp { height: 8px; border: 1px solid #8e9aac; border-radius: 2px; background: linear-gradient(90deg, #000, #fff); }

@@ -15,7 +15,7 @@
       "image": "/observations/comet/2025W50_2A_0797_1.png",
       "local_excess": 6.6968582702166755,
       "annulus_mad": 0.18121516280099084,
-      "preview_sha256": "80f08deb0ad27f323058ad10ca6d6875c7379fe95b8507371f2e5108261d7f95"
+      "preview_sha256": "9938d8a8e989a971f8be433ecbce245fe75198e1fd2f845ad240a960ce23cd3b"
     },
     {
       "id": "ivo://irsa.ipac/spherex_dr1?2025W50_2A_0797_2/D6",
@@ -32,7 +32,7 @@
       "image": "/observations/comet/2025W50_2A_0797_2.png",
       "local_excess": 2.843397183687024,
       "annulus_mad": 0.08990397246557982,
-      "preview_sha256": "52d43568bb0026a253bb9ff0f9a4cae59720a86ee2c1ce9c51c29a06b7147d37"
+      "preview_sha256": "6e08dc5b4c7aaa2024ee7a6d7d3829fea09defacbed0b5c305b4e6a9b0a816b7"
     },
     {
       "id": "ivo://irsa.ipac/spherex_dr1?2025W50_2A_0797_4/D6",
@@ -49,7 +49,7 @@
       "image": "/observations/comet/2025W50_2A_0797_4.png",
       "local_excess": 2.2963911319678605,
       "annulus_mad": 0.09335574063163973,
-      "preview_sha256": "50bdc9fb16dd5d7a91c444c7e9ae9a4bdd7f499ae3c0b4b1c291f630f926b1f0"
+      "preview_sha256": "4622e13ad997841974eea0e411546119539b18c5f33e8b4588434dfa26bcd52c"
     }
   ],
   "scale": [
@@ -73,5 +73,10 @@
     "asinh_strength": 5,
     "limits_unit": "MJy/sr",
     "quality_flags": "Finite flagged pixels remain visible, including the archive outlier flag at the predicted position."
+  },
+  "coverage_overlay": {
+    "image": "/observations/comet/coverage.png",
+    "sha256": "5b384b2837a882e33c23c84d6141dc74757ce856012b72a43f740c959b271d40",
+    "description": "Blue marks pixels outside the shared finite footprint. The overlay does not represent quality flags."
   }
 }

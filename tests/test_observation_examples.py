@@ -11,6 +11,20 @@ from PIL import Image
 WEB = Path(__file__).parents[1] / "apps/web"
 
 
+def test_comet_coverage_overlay_matches_the_shared_display_footprint():
+    root = WEB / "public/observations/comet"
+    manifest = json.loads((root / "processing.json").read_text())
+    coverage = manifest["coverage_overlay"]
+    overlay_path = WEB / "public" / coverage["image"].lstrip("/")
+    assert hashlib.sha256(overlay_path.read_bytes()).hexdigest() == coverage["sha256"]
+    with Image.open(overlay_path) as overlay:
+        masked = np.asarray(overlay.getchannel("A")) > 0
+    assert masked.sum() == (manifest["total_pixels"] - manifest["common_pixels"]) * 64
+    for frame in manifest["frames"]:
+        with Image.open(WEB / "public" / frame["image"].lstrip("/")) as image:
+            assert np.all(np.asarray(image)[masked] == 0)
+
+
 def test_curated_previews_match_manifest_and_share_one_grid():
     for name in ("comet", "barnard"):
         manifest = json.loads((WEB / "public/observations" / name / "processing.json").read_text())

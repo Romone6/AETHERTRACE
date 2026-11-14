@@ -78,7 +78,7 @@ export function ImageryMethods() {
       </article>
       <article className="method-step" id="display-comet">
         <h2>3I/ATLAS sequence</h2>
-        <p>We bilinearly align three D6 exposures to a 41 × 41 tangent-plane grid with 6.15 arcseconds per pixel. The shared footprint uses finite pixels and retains flagged values for visual inspection. We clip at the pooled 3rd and 99.5th percentiles, then apply one grayscale asinh stretch (strength 5) across the three frames. The ring marks the IRSA predicted position, where the archive reports an outlier flag in each exposure.</p>
+        <p>We bilinearly align three D6 exposures to a 41 × 41 tangent-plane grid with 6.15 arcseconds per pixel. The shared footprint uses finite pixels and retains flagged values for visual inspection. We clip at the pooled 3rd and 99.5th percentiles, then apply one grayscale asinh stretch (strength 5) across the three frames. The ring and dots show the current and earlier IRSA predicted positions. The optional blue overlay shows pixels outside the shared finite footprint. The archive reports an outlier flag at the predicted center in each exposure.</p>
         <p><a href="/observations/comet/processing.json">3I/ATLAS processing record (JSON)</a></p>
       </article>
     </>
