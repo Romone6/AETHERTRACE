@@ -571,3 +571,12 @@
   .method-stages { grid-template-columns: 1fr; }
   .method-stages img { max-width: 280px; }
 }
+
+.display-method-link { text-underline-offset: 3px; }
+.explorer-composite { margin-top: 20px; padding: 14px; }
+.explorer-composite summary { color: var(--navy); cursor: pointer; font-weight: 600; }
+.explorer-composite .home-composite { margin: 14px 0 0; }
+.method-step[id] { scroll-margin-top: 24px; }
+.method-step p + p { margin-top: 8px; }
+.method-source-list { display: grid; gap: 4px; padding-left: 18px; margin-bottom: 0; font-size: 14px; }
+.method-source-list a { color: var(--blue); text-underline-offset: 3px; }

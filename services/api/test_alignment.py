@@ -46,3 +46,18 @@ def test_display_pair_marks_excluded_pixels_without_coloring_valid_data():
         assert (pixels[0, 0] == pixels[0, 0, 0]).all()
         assert tuple(pixels[0, 1]) == EXCLUDED_PIXEL_COLOR
         assert (pixels[0, 1] == pixels[1, 0]).all()
+
+
+def test_display_pair_uses_one_asinh_stretch():
+    from io import BytesIO
+    from PIL import Image
+    from services.api.alignment import AlignedPair, display_pair
+
+    a = np.array([[0.0, 25], [50, 100]])
+    b = np.array([[0.0, 25], [50, 200]])
+    common = np.ones_like(a, dtype=bool)
+    png_a, png_b = display_pair(AlignedPair(a, b, common, a))
+    lo, hi = np.percentile(np.concatenate((a.ravel(), b.ravel())), [1, 99.5])
+    expected = int(255 * np.arcsinh(10 * (25 - lo) / (hi - lo)) / np.arcsinh(10))
+    assert np.asarray(Image.open(BytesIO(png_a)))[0, 1, 0] == expected
+    assert np.asarray(Image.open(BytesIO(png_b)))[0, 1, 0] == expected

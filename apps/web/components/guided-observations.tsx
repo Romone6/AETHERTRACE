@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import comet from "./comet-data.json";
-import barnard from "./barnard-data.json";
+import comet from "../public/observations/comet/processing.json";
+import barnard from "../public/observations/barnard/processing.json";
+import { DisplayMethodLink } from "./sky-composites";
 
 const dateTime = new Intl.DateTimeFormat("en", {
   dateStyle: "medium", timeStyle: "medium", timeZone: "UTC",
@@ -22,7 +23,7 @@ export function Blink({ frames }: { frames: [BlinkFrame, BlinkFrame] }) {
   return (
     <section aria-label="Blink comparison" className="blink-panel">
       <h3>Blink comparison</h3>
-      <p>Both images use one sky grid and one brightness scale.</p>
+      <p>Both images use one sky grid and a shared grayscale asinh stretch. <DisplayMethodLink kind="comparisons" /></p>
       <div className="blink-stage comparison-image">
         {frames.map((frame, i) => (
           <img
@@ -113,10 +114,11 @@ export function CometWalkthrough() {
             <label><input type="checkbox" checked={showMarker} onChange={(event) => setShowMarker(event.target.checked)} /> Show predicted position</label>
           </div>
           <p><span className="comet-marker-key" aria-hidden="true" /> The ring marks IRSA’s predicted position: {frame.ra.toFixed(5)}°, {frame.dec.toFixed(5)}° (ICRS).</p>
-          <p>These D6 images share a display scale. The archive flags the predicted center as an outlier in all three exposures. Local wavelength can vary.</p>
+          <p>These D6 images share a grayscale asinh stretch. The archive flags the predicted center as an outlier in all three exposures. Local wavelength can vary. <DisplayMethodLink kind="comet" /></p>
           <div className="cutout-links">
             <a href={frame.source} target="_blank" rel="noreferrer">Source product ↗</a>
             <a href="https://irsa.ipac.caltech.edu/data/SPHEREx/docs/comet3iatlas/index.html" target="_blank" rel="noreferrer">IRSA observation table ↗</a>
+            <a href="/observations/comet/processing.json">Processing record (JSON)</a>
           </div>
           <p className="observation-id">{frame.id}</p>
         </div>
@@ -170,6 +172,7 @@ export function BarnardValidation({ open, onToggle }: { open: boolean; onToggle:
       <Blink frames={verifiedBarnardFrames("barnards-star", barnard.frames[0].id, barnard.frames[1].id)!} />
       <div className="cutout-links">
         <a href={`/evidence?${barnardParams}`}>Open this pair</a>
+        <a href="/observations/barnard/processing.json">Processing record (JSON)</a>
         <a href={barnard.calibration} target="_blank" rel="noreferrer">D3 wavelength calibration ↗</a>
         <a href="https://gea.esac.esa.int/archive/" target="_blank" rel="noreferrer">Gaia DR3 source {barnard.gaia.source_id} ↗</a>
       </div>
@@ -181,7 +184,7 @@ export function BarnardValidation({ open, onToggle }: { open: boolean; onToggle:
 export function BarnardMethod() {
   const stages = [
     { image: barnard.method_images.original.image, title: "Original cutout", detail: "Exposure A on its native detector grid, with its own display stretch.", alt: "Original infrared cutout of Barnard’s Star with a bright area near the center" },
-    { image: barnard.frames[0].image, title: "Aligned observation", detail: "Exposure A on the shared sky grid. Both exposures use the same brightness scale.", alt: "Exposure A shown in grayscale with excluded pixels in blue" },
+    { image: barnard.frames[0].image, title: "Aligned observation", detail: "Exposure A on the shared sky grid, with one grayscale asinh stretch for both exposures.", alt: "Exposure A shown in grayscale with excluded pixels in blue" },
     { image: barnard.method_images.mask.image, title: "Shared pixel mask", detail: `${barnard.aligned_pixels} of ${barnard.grid_pixels} pixels are usable in both exposures. Blue marks excluded pixels.`, alt: "Blue pixels show areas excluded from the comparison, including the star’s predicted center" },
   ];
   return (

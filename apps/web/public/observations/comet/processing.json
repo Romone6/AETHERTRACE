@@ -63,5 +63,15 @@
     "pixels": 41
   },
   "total_pixels": 1681,
-  "common_pixels": 1572
+  "common_pixels": 1572,
+  "display": {
+    "sampling": "Bilinear sampling onto a north-up, east-left TAN grid, using the common finite footprint.",
+    "percentiles": [
+      3,
+      99.5
+    ],
+    "asinh_strength": 5,
+    "limits_unit": "MJy/sr",
+    "quality_flags": "Finite flagged pixels remain visible, including the archive outlier flag at the predicted position."
+  }
 }

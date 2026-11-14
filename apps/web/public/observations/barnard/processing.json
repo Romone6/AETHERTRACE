@@ -21,7 +21,7 @@
       "source": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W33_2C/l2b-v27-2026-228/3/level2_2025W33_2C_0321_1D3_spx_l2b-v27-2026-228.fits",
       "sha256": "1bfa8691f08af9aa45d013159e415a8e40f85c9679cf243745736b1f80f4a0d5",
       "astrometry_flag": 0,
-      "preview_sha256": "6a3865606362185ded5570ce5cb9b74d8552ae65132ab851416ca05db20de15f",
+      "preview_sha256": "c46b72fba3ef7388ca451d404000c8fa9e47b83034e47735fb84e7e5a1ad8d53",
       "image": "/observations/barnard/a.png"
     },
     {
@@ -45,7 +45,7 @@
       "source": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2026W19_1A/l2b-v27-2026-245/3/level2_2026W19_1A_0216_1D3_spx_l2b-v27-2026-245.fits",
       "sha256": "dbf9d49cd5f439f2cdeef150b77e631e4ca0e9a8ae9ee4d64c3f6f8369707a61",
       "astrometry_flag": 0,
-      "preview_sha256": "dcb92b61652eca5d0810e3d3138e806e6e958bdb6a43af4de337abdf2273f3aa",
+      "preview_sha256": "b5358f800671c7271e2c39ed1da73b22a87ef83bdc3a492ff04e7ad321b65917",
       "image": "/observations/barnard/b.png"
     }
   ],
@@ -74,5 +74,16 @@
       "image": "/observations/barnard/common-mask.png",
       "sha256": "a614b3b23610c0d8168c6d6e612943f630acb001966fe782684dcaadfadfffe6"
     }
+  },
+  "blink_display": {
+    "percentiles": [
+      1,
+      99.5
+    ],
+    "asinh_strength": 10,
+    "shared_limits_mjy_sr": [
+      0.2655221187312801,
+      7.434587135305078
+    ]
   }
 }

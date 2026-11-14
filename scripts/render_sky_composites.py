@@ -1,4 +1,4 @@
-"""Render the homepage's Orion plate from the SPHEREx DR1 FITS cubes."""
+"""Render the site’s fixed sky fields from the SPHEREx DR1 FITS cubes."""
 
 import argparse
 import hashlib
@@ -16,9 +16,13 @@ ARCHIVE = (
     "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/"
     "hips5_cube/hips_20261026/Norder5/Dir0"
 )
-TILES = ("Npix5359_cube.fits", "Npix5701_cube.fits")
 BANDS = (("Red", 3.3), ("Green", 2.2), ("Blue", 1.25))
-CENTER = (83.822083, -5.31)
+FIELDS = {
+    "orion-nebula": ("orion", "Orion Nebula", (83.822083, -5.31), (5359, 5701)),
+    "andromeda": ("andromeda", "Andromeda Galaxy", (10.684708, 41.26875), (655, 677)),
+    "pleiades": ("pleiades", "Pleiades", (56.75, 24.1167), (115, 118)),
+    "barnards-star": ("barnard-field", "Barnard’s Star field", (269.44628, 4.768), (7939, 7945, 7948)),
+}
 PIXEL_SCALE = 12.9
 WIDTH, HEIGHT = 376, 196
 STRETCH, Q = 0.16, 9
@@ -69,10 +73,11 @@ def read_tile(path, sky):
     }
 
 
-def render(directory):
+def render(directory, field):
+    stem, title, center, tiles = FIELDS[field]
     projection = WCS(naxis=2)
     projection.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-    projection.wcs.crval = CENTER
+    projection.wcs.crval = center
     projection.wcs.crpix = [(WIDTH + 1) / 2, (HEIGHT + 1) / 2]
     projection.wcs.cdelt = np.array([-PIXEL_SCALE, PIXEL_SCALE]) / 3600
     y, x = np.indices((HEIGHT, WIDTH))
@@ -81,7 +86,8 @@ def render(directory):
     best = np.zeros((HEIGHT, WIDTH), dtype=int)
     mosaic = np.full((len(BANDS), HEIGHT, WIDTH), np.nan, dtype=np.float32)
     sources, bands = [], None
-    for name in TILES:
+    for tile in tiles:
+        name = f"Npix{tile}_cube.fits"
         pixels, support, tile_bands, source = read_tile(directory / name, sky)
         if bands is not None and bands != tile_bands:
             raise ValueError("Spectral channel tables disagree")
@@ -105,17 +111,17 @@ def render(directory):
     with np.errstate(invalid="ignore", divide="ignore"):
         rgb = make_lupton_rgb(*normalized, stretch=STRETCH, Q=Q)
     image = Image.fromarray(np.dstack((rgb, covered.astype(np.uint8) * 255)))
-    output = OUTPUT / "orion-composite.webp"
+    output = OUTPUT / f"{stem}-composite.webp"
     image.save(output, lossless=True, exact=True, method=6)
     manifest = {
-        "title": "Orion Nebula",
+        "title": title,
         "release": "SPHEREx DR1",
         "product": "All-Sky Cube",
         "release_url": "https://www.ipac.caltech.edu/doi/10.26131/IRSA679",
         "image": output.name,
         "image_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
         "size_px": [WIDTH, HEIGHT],
-        "center_icrs_deg": list(CENTER),
+        "center_icrs_deg": list(center),
         "projection": "TAN, north up and east left",
         "pixel_scale_arcsec": PIXEL_SCALE,
         "coverage_fraction": covered.mean(),
@@ -131,10 +137,13 @@ def render(directory):
             "lupton_q": Q,
         },
     }
-    (OUTPUT / "orion-composite.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (OUTPUT / f"{stem}-composite.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("fits_directory", type=Path, help="Directory holding the two FITS cubes")
-    render(parser.parse_args().fits_directory)
+    parser.add_argument("fits_directory", type=Path, help="Directory holding the input FITS cubes")
+    parser.add_argument("--field", choices=FIELDS, action="append", help="Field to render (repeatable, defaults to all)")
+    args = parser.parse_args()
+    for field in args.field or FIELDS:
+        render(args.fits_directory, field)

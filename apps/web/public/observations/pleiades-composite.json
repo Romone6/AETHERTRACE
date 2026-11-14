@@ -1,0 +1,87 @@
+{
+  "title": "Pleiades",
+  "release": "SPHEREx DR1",
+  "product": "All-Sky Cube",
+  "release_url": "https://www.ipac.caltech.edu/doi/10.26131/IRSA679",
+  "image": "pleiades-composite.webp",
+  "image_sha256": "6ee26142825f0314067025523ae19f4c60fedd8dc9f736eab55911f831e26beb",
+  "size_px": [
+    376,
+    196
+  ],
+  "center_icrs_deg": [
+    56.75,
+    24.1167
+  ],
+  "projection": "TAN, north up and east left",
+  "pixel_scale_arcsec": 12.9,
+  "coverage_fraction": 0.9956985453755971,
+  "bands": [
+    {
+      "color": "Red",
+      "plane": 63,
+      "detector": 4,
+      "subchannel": 12,
+      "wavelength_um": 3.293,
+      "min_um": 3.242,
+      "max_um": 3.342
+    },
+    {
+      "color": "Green",
+      "plane": 47,
+      "detector": 3,
+      "subchannel": 13,
+      "wavelength_um": 2.189,
+      "min_um": 2.16,
+      "max_um": 2.216
+    },
+    {
+      "color": "Blue",
+      "plane": 23,
+      "detector": 2,
+      "subchannel": 6,
+      "wavelength_um": 1.254,
+      "min_um": 1.238,
+      "max_um": 1.269
+    }
+  ],
+  "sources": [
+    {
+      "product": "Npix115_cube.fits",
+      "fits_url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/hips5_cube/hips_20261026/Norder5/Dir0/Npix115_cube.fits",
+      "sha256": "88d6fa716288a8b4f542fc9a7037e17a5b6a68fc6d3523cf932c0aa6d10ca163",
+      "earliest_input_utc": "2025-08-11T21:36:45.096",
+      "latest_input_utc": "2026-02-19T18:29:31.755"
+    },
+    {
+      "product": "Npix118_cube.fits",
+      "fits_url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/hips5_cube/hips_20261026/Norder5/Dir0/Npix118_cube.fits",
+      "sha256": "cc6c9575d44dfb97c636613242a47b4d49f9fc917f8fd25e882a96988f31a87d",
+      "earliest_input_utc": "2025-08-19T10:35:53.880",
+      "latest_input_utc": "2026-02-26T20:00:44.280"
+    }
+  ],
+  "processing": {
+    "sampling": "Nearest native pixel with finite brightness and positive NHITS in all three bands. In overlaps prefer the highest minimum NHITS across the bands.",
+    "display": "Per-band percentile normalization and clipping followed by the Lupton asinh RGB stretch. Missing coverage is transparent.",
+    "input_units": "MJy/sr",
+    "percentiles": [
+      5,
+      99.85
+    ],
+    "display_levels_by_percentile_rgb": [
+      [
+        0.0695396289229393,
+        0.03043751120567322,
+        0.058420566469430925
+      ],
+      [
+        8.542136192321777,
+        11.264408938406898,
+        14.842746424674731
+      ]
+    ],
+    "lupton_stretch": 0.16,
+    "lupton_q": 9
+  }
+}

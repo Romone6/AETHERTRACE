@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { BarnardValidation, BarnardMethod, Blink, CometWalkthrough, WorkedExampleLink, verifiedBarnardFrames } from "./guided-observations";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import orion from "../public/observations/orion-composite.json";
+import { composites, DisplayMethodLink, ImageryMethods, SkyComposite } from "./sky-composites";
 
 type Target = {
   id: string;
@@ -241,7 +241,7 @@ function ComparisonResult({ comparison }: { comparison: Comparison }) {
       ) : <p className="comparison-caveat">Aligned blink preview unavailable. You can still inspect the original cutouts below.</p>}
       <div className="original-observations">
         <h3>Source observations</h3>
-        <p className="comparison-caveat">Each 0.05° cutout uses its original pixel grid and an individual display scale.</p>
+        <p className="comparison-caveat">Each 0.05° cutout uses its original pixel grid and an individual grayscale stretch. <DisplayMethodLink kind="previews" /></p>
       </div>
       <div className="comparison-cutouts">
         <ComparisonCutout key={`a:${comparison.observation_a.id}`} observation={comparison.observation_a} targetId={comparison.target} label="Observation A" inspection={isRecord(fits) ? fits.observation_a : undefined} />
@@ -289,6 +289,9 @@ export default function Explorer({ view }: { view: View }) {
   const channels = Array.from(new Set(observations.map((item) => item.channel))).sort();
   const channelObservations = observations.filter((item) => item.channel === channel);
   const frame = channelObservations[frameIndex];
+  const compositeField = target?.id ?? "orion-nebula";
+  const hasComposite = Boolean(composites[compositeField]);
+  const showingComposite = showComposite && hasComposite;
   const filteredObservations = observations.filter((item) => {
     const needle = query.trim().toLocaleLowerCase();
     const matchesQuery = !needle || [item.id, item.release, item.channel, item.observed_at]
@@ -309,7 +312,9 @@ export default function Explorer({ view }: { view: View }) {
         const requestedField = params.get("target");
         const savedTarget = window.sessionStorage.getItem("aethertrace-field");
         const first = data.find((item) => item.id === requestedField)
-          ?? data.find((item) => item.id === savedTarget) ?? data[0];
+          ?? data.find((item) => item.id === savedTarget)
+          ?? (view === "home" ? data.find((item) => item.id === "orion-nebula") : undefined)
+          ?? data[0];
         if (!first) {
           setMessage("No sky fields are available.");
           return;
@@ -477,10 +482,7 @@ export default function Explorer({ view }: { view: View }) {
     <div className="context-bar">
       <div className="context-target">
         <label htmlFor="target-select">Sky field</label>
-        <select id="target-select" value={target?.id ?? ""} disabled={serviceState !== "ready" || targets.length === 0} onChange={(event) => {
-          if (view === "home") setShowComposite(false);
-          void chooseTarget(event.target.value);
-        }}>
+        <select id="target-select" value={target?.id ?? ""} disabled={serviceState !== "ready" || targets.length === 0} onChange={(event) => void chooseTarget(event.target.value)}>
           {!targets.length && <option value="">{serviceState === "loading" ? "Loading catalog…" : "No targets available"}</option>}
           {targets.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
@@ -504,34 +506,8 @@ export default function Explorer({ view }: { view: View }) {
               </p>
               <Link className="home-cta" href="/explorer">Explore observations</Link>
             </div>
-            {showComposite ? (
-              <figure id="home-image" className="home-visual home-composite">
-                <div className="home-composite-plate">
-                  <img
-                    src={`/observations/${orion.image}`}
-                    width={orion.size_px[0]}
-                    height={orion.size_px[1]}
-                    alt="False-color infrared view of the Orion Nebula. Reddish clouds surround a bright core, with stars scattered across the field."
-                  />
-                </div>
-                <figcaption className="home-composite-caption">
-                  <span>{orion.release} · False color</span>
-                  <strong>{orion.title}</strong>
-                  <ul aria-label="Color and infrared wavelength">
-                    {orion.bands.map((band) => (
-                      <li key={band.color} className={`wavelength-${band.color.toLowerCase()}`}>
-                        {band.color} <span>{band.wavelength_um.toFixed(3)} μm</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <p>Three All-Sky Cube bands, with brightness scaled for display. Dark gaps mark missing coverage.</p>
-                  <Link href="/explorer?target=orion-nebula">Explore Orion exposures <span aria-hidden="true">↗</span></Link>
-                  <div className="home-composite-sources">
-                    <a href={orion.release_url}>Source release</a>
-                    <a href="/observations/orion-composite.json">Processing record (JSON)</a>
-                  </div>
-                </figcaption>
-              </figure>
+            {showingComposite ? (
+              <SkyComposite field={compositeField} id="home-image" />
             ) : (
               <figure id="home-image" className="home-visual">
                 {frame && target && !previewFailed ? (
@@ -556,22 +532,22 @@ export default function Explorer({ view }: { view: View }) {
                 )}
               </figure>
             )}
-            <button
+            {hasComposite && <button
               type="button"
               className="home-image-toggle"
               aria-controls="home-image"
               onClick={() => setShowComposite((value) => !value)}
             >
-              {showComposite ? "Show a single exposure" : "Show the Orion composite"}
-            </button>
-            {!showComposite && frame && (
+              {showingComposite ? "Show a single exposure" : "Show the false-color composite"}
+            </button>}
+            {!showingComposite && frame && (
               <dl className="home-facts" aria-label="Selected observation details">
                 <div><dt>Data release</dt><dd>{frame.release}</dd></div>
                 <div><dt>Observation sequence</dt><dd>{channelObservations.length} {frame.channel.replace("SPHEREx-", "")} frames</dd></div>
                 <div><dt>Detector coverage</dt><dd>{frame.wavelength_min_um.toFixed(2)}–{frame.wavelength_max_um.toFixed(2)} μm</dd></div>
               </dl>
             )}
-            {!showComposite && <p className="home-caveat">Brightness is scaled for display.</p>}
+            {!showingComposite && <p className="home-caveat">Individual grayscale stretch. <DisplayMethodLink kind="previews" /></p>}
           </section>
           <section className="home-fields" aria-labelledby="home-fields-title">
             <h2 id="home-fields-title">Browse sky fields</h2>
@@ -606,7 +582,7 @@ export default function Explorer({ view }: { view: View }) {
                     {frame && target && !previewFailed ? <img className="deck-image" src={previewUrl(target.id, frame.id)} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewFailed ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "Select a sky field"} detail={previewFailed ? "You can still review the observation details." : "Choose a field to view its images."} />}
                     {frame && !previewFailed && <figcaption className="deck-plate-caption">{frame.release} / {frame.channel.replace("SPHEREx-", "")}</figcaption>}
                   </figure>
-                  {frame && <p className="frame-caption">Brightness is scaled for display.</p>}
+                  {frame && <p className="frame-caption"><span>Individual grayscale stretch</span><DisplayMethodLink kind="previews" /></p>}
                 </section>
                 <aside className="deck-aside">
                   <section className="card frame-meta"><div className="card-heading"><div><h2>Observation details</h2></div></div>
@@ -617,6 +593,12 @@ export default function Explorer({ view }: { view: View }) {
                   <div className="caution-note"><span className="caution-icon" aria-hidden="true">i</span><p>Each cutout uses the same sky coordinates.{target?.id === "barnards-star" && " The star’s motion can move it away from the center between exposures."}</p></div>
                 </aside>
               </div>
+              {target && hasComposite && (
+                <details className="card explorer-composite" key={target.id}>
+                  <summary>View the false-color composite of this field</summary>
+                  <SkyComposite field={target.id} explorer />
+                </details>
+              )}
               <CometWalkthrough />
               <section className="card sequence-strip"><div className="card-heading"><div><h2>Frames in this channel</h2></div><span className="record-count">{channelObservations.length} RECORDS</span></div>
                 {channelObservations.length ? <div className="sequence-list">{channelObservations.slice(Math.max(0, frameIndex - 2), frameIndex + 6).map((item, localIndex) => { const index = Math.max(0, frameIndex - 2) + localIndex; return <button type="button" key={item.id} className={`sequence-item ${index === frameIndex ? "is-selected" : ""}`} onClick={() => { setPlaying(false); setFrameIndex(index); }} aria-current={index === frameIndex ? "true" : undefined}><span className="sequence-node" /><span className="sequence-date">{formatDate(item.observed_at, false)}</span><span className="sequence-id">{item.id}</span><span className="sequence-wave">{item.wavelength_min_um.toFixed(2)}–{item.wavelength_max_um.toFixed(2)} μm</span></button>; })}</div> : <EmptyState title="No frames in this channel" detail={message} />}
@@ -685,7 +667,7 @@ export default function Explorer({ view }: { view: View }) {
             <>
               <div className="method-steps">
                 <article className="method-step"><div><h2>Source observations</h2><p>The NASA/IPAC Infrared Science Archive provides the SPHEREx Data Release 1 images. Each record includes the original observation ID, exposure time, detector and wavelength range.</p></div></article>
-                <article className="method-step"><div><h2>Image previews</h2><p>Each preview shows a cutout around fixed sky coordinates. Brightness is scaled for each image so faint detail is easier to see. Use the FITS files for measurements.</p></div></article>
+                <ImageryMethods />
                 <article className="method-step"><div><h2>Scientific comparisons</h2><p>Measuring a change requires matching the wavelength at the target, aligning the images, interpreting pixel flags and accounting for uncertainty. A moving target may also need a different cutout center at each exposure.</p></div></article>
               </div>
               <BarnardMethod />

@@ -1,0 +1,94 @@
+{
+  "title": "Barnard\u2019s Star field",
+  "release": "SPHEREx DR1",
+  "product": "All-Sky Cube",
+  "release_url": "https://www.ipac.caltech.edu/doi/10.26131/IRSA679",
+  "image": "barnard-field-composite.webp",
+  "image_sha256": "02f1934813f7ab087b3c66940568f4bde6393c8f66d76316e38c37683f72f6d4",
+  "size_px": [
+    376,
+    196
+  ],
+  "center_icrs_deg": [
+    269.44628,
+    4.768
+  ],
+  "projection": "TAN, north up and east left",
+  "pixel_scale_arcsec": 12.9,
+  "coverage_fraction": 0.985792987407729,
+  "bands": [
+    {
+      "color": "Red",
+      "plane": 63,
+      "detector": 4,
+      "subchannel": 12,
+      "wavelength_um": 3.293,
+      "min_um": 3.242,
+      "max_um": 3.342
+    },
+    {
+      "color": "Green",
+      "plane": 47,
+      "detector": 3,
+      "subchannel": 13,
+      "wavelength_um": 2.189,
+      "min_um": 2.16,
+      "max_um": 2.216
+    },
+    {
+      "color": "Blue",
+      "plane": 23,
+      "detector": 2,
+      "subchannel": 6,
+      "wavelength_um": 1.254,
+      "min_um": 1.238,
+      "max_um": 1.269
+    }
+  ],
+  "sources": [
+    {
+      "product": "Npix7939_cube.fits",
+      "fits_url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/hips5_cube/hips_20261026/Norder5/Dir0/Npix7939_cube.fits",
+      "sha256": "1384b3666bc068cc6f6cd40784a9d7c8d1fbef717b12be61209d2fae0ac434b1",
+      "earliest_input_utc": "2025-08-15T20:45:11.337",
+      "latest_input_utc": "2026-05-08T14:44:11.296"
+    },
+    {
+      "product": "Npix7945_cube.fits",
+      "fits_url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/hips5_cube/hips_20261026/Norder5/Dir0/Npix7945_cube.fits",
+      "sha256": "00e6e83df65d7e85eabb7029fc99d924e9e8c631037572bc2e7453935f9cc5b7",
+      "earliest_input_utc": "2025-08-12T12:50:54.415",
+      "latest_input_utc": "2026-05-08T14:44:11.296"
+    },
+    {
+      "product": "Npix7948_cube.fits",
+      "fits_url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/hips5_cube/hips_20261026/Norder5/Dir0/Npix7948_cube.fits",
+      "sha256": "686416fc305a49a6673f4630e9d3a925102ef054d17fb1ad5e247387e109a778",
+      "earliest_input_utc": "2025-08-15T20:45:11.337",
+      "latest_input_utc": "2026-05-08T19:37:42.633"
+    }
+  ],
+  "processing": {
+    "sampling": "Nearest native pixel with finite brightness and positive NHITS in all three bands. In overlaps prefer the highest minimum NHITS across the bands.",
+    "display": "Per-band percentile normalization and clipping followed by the Lupton asinh RGB stretch. Missing coverage is transparent.",
+    "input_units": "MJy/sr",
+    "percentiles": [
+      5,
+      99.85
+    ],
+    "display_levels_by_percentile_rgb": [
+      [
+        0.058451217412948606,
+        0.04872562885284424,
+        0.0886221468448639
+      ],
+      [
+        11.333705089568765,
+        18.29048935698968,
+        21.42710970306301
+      ]
+    ],
+    "lupton_stretch": 0.16,
+    "lupton_q": 9
+  }
+}

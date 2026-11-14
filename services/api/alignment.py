@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from astropy.wcs import WCS
+from services.api.display import asinh_grayscale, percentile_limits
 
 # IRSA Explanatory Supplement v2.1, table 16. SOURCE (21) is informational.
 REJECT_FLAGS = sum(1 << bit for bit in (0, 1, 2, 6, 7, 9, 10, 11, 12, 14, 15, 17, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29))
@@ -62,17 +63,16 @@ def _sample(image, variance, good, x, y):
 
 
 def display_pair(pair):
-    """Render both images with one linear display scale and identical masked footprint."""
+    """Render both images with one asinh display scale and identical masked footprint."""
     from io import BytesIO
     from PIL import Image
 
     if not pair.common.any():
         raise ValueError("The observations have no common usable pixels.")
-    lo, hi = np.percentile(np.concatenate((pair.a[pair.common], pair.b[pair.common])), [1, 99.5])
-    scale = hi - lo or 1
+    lo, hi = percentile_limits(np.concatenate((pair.a[pair.common], pair.b[pair.common])))
     outputs = []
     for image in (pair.a, pair.b):
-        gray = np.where(pair.common, np.clip((image - lo) / scale, 0, 1) * 255, 0).astype(np.uint8)
+        gray = asinh_grayscale(image, pair.common, lo, hi)
         pixels = np.repeat(gray[..., None], 3, axis=-1)
         pixels[~pair.common] = EXCLUDED_PIXEL_COLOR
         out = BytesIO()

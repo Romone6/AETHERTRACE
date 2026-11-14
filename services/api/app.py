@@ -319,6 +319,7 @@ def get_preview(target: str = Query(...), observation_id: str = Query(...), size
     import numpy as np
     from astropy.io import fits
     from PIL import Image
+    from services.api.display import asinh_grayscale, percentile_limits
 
     _target(target)
     size = _number(size, "size", 0.1)
@@ -338,12 +339,8 @@ def get_preview(target: str = Query(...), observation_id: str = Query(...), size
             finite = np.isfinite(pixels)
             if pixels.ndim != 2 or not finite.any():
                 raise ValueError("FITS IMAGE extension has no finite 2D pixels")
-            low, high = np.nanpercentile(pixels[finite], [1, 99.5])
-            if not np.isfinite(low) or not np.isfinite(high) or high <= low:
-                high = low + 1
-            scaled = np.clip((pixels - low) / (high - low), 0, 1)
-            stretched = np.arcsinh(10 * scaled) / np.arcsinh(10)
-            grayscale = np.where(finite, stretched * 255, 0).astype(np.uint8)
+            low, high = percentile_limits(pixels[finite])
+            grayscale = asinh_grayscale(pixels, finite, low, high)
             preview = Image.fromarray(grayscale).resize(
                 (max(1, grayscale.shape[1] * 8), max(1, grayscale.shape[0] * 8)),
                 resample=Image.Resampling.NEAREST,
