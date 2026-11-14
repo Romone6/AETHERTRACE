@@ -339,3 +339,31 @@ def test_aligned_comparison_returns_two_rendered_images_without_change_claim(mon
     assert alignment["common_pixels"] > 25
     for key in ("png_a", "png_b"):
         assert base64.b64decode(alignment[key]).startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_alignment_reuses_the_same_cutout_attempts_as_inspection(monkeypatch):
+    from fastapi import HTTPException
+    from services.api.test_alignment import frame
+
+    row_b = {**ROW_B, "access_url": ROW_A["access_url"].replace("example", "example_b")}
+    monkeypatch.setattr(api, "_archive_rows", lambda _target: ([ROW_A, row_b], {}))
+    data = BytesIO()
+    frame(0, 4.0).writeto(data)
+    requests = []
+
+    def download(url, *args, **kwargs):
+        requests.append(url)
+        if url == row_b["access_url"]:
+            raise HTTPException(502, "archive unavailable")
+        return data.getvalue()
+
+    monkeypatch.setattr(api, "_download_cutout", download)
+    response = client.get("/api/compare", params={
+        "target": "barnards-star", "epoch_a": ROW_A["obs_publisher_did"],
+        "epoch_b": ROW_B["obs_publisher_did"], "align_cutouts": True,
+    })
+    assert response.status_code == 200
+    assert requests == [ROW_A["access_url"], row_b["access_url"]]
+    statistics = response.json()["statistics"]
+    assert statistics["fits_inspection"]["observation_a"]["status"] == "available"
+    assert statistics["visual_alignment"]["status"] == "unavailable"

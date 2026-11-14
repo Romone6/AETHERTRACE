@@ -7,6 +7,7 @@ from astropy.wcs import WCS
 
 # IRSA Explanatory Supplement v2.1, table 16. SOURCE (21) is informational.
 REJECT_FLAGS = sum(1 << bit for bit in (0, 1, 2, 6, 7, 9, 10, 11, 12, 14, 15, 17, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29))
+EXCLUDED_PIXEL_COLOR = (56, 109, 174)
 
 
 @dataclass
@@ -71,7 +72,9 @@ def display_pair(pair):
     scale = hi - lo or 1
     outputs = []
     for image in (pair.a, pair.b):
-        pixels = np.where(pair.common, np.clip((image - lo) / scale, 0, 1) * 255, 0).astype(np.uint8)
+        gray = np.where(pair.common, np.clip((image - lo) / scale, 0, 1) * 255, 0).astype(np.uint8)
+        pixels = np.repeat(gray[..., None], 3, axis=-1)
+        pixels[~pair.common] = EXCLUDED_PIXEL_COLOR
         out = BytesIO()
         Image.fromarray(pixels).save(out, format="PNG")
         outputs.append(out.getvalue())

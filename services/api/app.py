@@ -200,25 +200,26 @@ def compare_observations(
         raise HTTPException(422, "observations have incompatible releases or wavelength intervals")
     result = comparison(target, observation_a, observation_b)
     if inspect_cutouts or align_cutouts:
+        cutouts = [_comparison_cutout(observation, target_info) for observation in (observation_a, observation_b)]
         result["statistics"] = {
             "fits_inspection": {
-                "observation_a": _cutout_inspection(observation_a, target_info),
-                "observation_b": _cutout_inspection(observation_b, target_info),
+                label: inspect_fits_cutout(payload) if payload is not None else {"status": "unavailable"}
+                for label, payload in zip(("observation_a", "observation_b"), cutouts)
             },
         }
-    if align_cutouts:
-        result["statistics"]["visual_alignment"] = _aligned_preview(observation_a, observation_b, target_info)
+        if align_cutouts:
+            result["statistics"]["visual_alignment"] = _aligned_preview(*cutouts)
     return result
 
 
-def _aligned_preview(observation_a, observation_b, target):
+def _aligned_preview(cutout_a: bytes | None, cutout_b: bytes | None):
     from astropy.io import fits
     from services.api.alignment import align_pair, display_pair
 
+    if cutout_a is None or cutout_b is None:
+        return {"status": "unavailable"}
     try:
-        products = [_download_cutout(item.get("product_url", ""), target, DEFAULT_CUTOUT_SIZE)
-                    for item in (observation_a, observation_b)]
-        with fits.open(io.BytesIO(products[0])) as image_a, fits.open(io.BytesIO(products[1])) as image_b:
+        with fits.open(io.BytesIO(cutout_a)) as image_a, fits.open(io.BytesIO(cutout_b)) as image_b:
             pair = align_pair(image_a, image_b)
             png_a, png_b = display_pair(pair)
         return {
@@ -227,7 +228,7 @@ def _aligned_preview(observation_a, observation_b, target):
             "png_a": base64.b64encode(png_a).decode("ascii"),
             "png_b": base64.b64encode(png_b).decode("ascii"),
         }
-    except (HTTPException, OSError, ValueError, TypeError, KeyError):
+    except (OSError, ValueError, TypeError, KeyError):
         return {"status": "unavailable"}
 
 
@@ -305,12 +306,11 @@ def _download_cutout(source_url: str, target_info: dict[str, Any], size: float) 
     return payload
 
 
-def _cutout_inspection(observation: dict[str, Any], target_info: dict[str, Any]) -> dict[str, Any]:
+def _comparison_cutout(observation: dict[str, Any], target_info: dict[str, Any]) -> bytes | None:
     try:
-        payload = _download_cutout(observation.get("product_url", ""), target_info, size=DEFAULT_CUTOUT_SIZE)
+        return _download_cutout(observation.get("product_url", ""), target_info, size=DEFAULT_CUTOUT_SIZE)
     except HTTPException:
-        return {"status": "unavailable"}
-    return inspect_fits_cutout(payload)
+        return None
 
 
 @app.get("/api/preview")

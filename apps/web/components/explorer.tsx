@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BarnardValidation, Blink, CometWalkthrough, WorkedExampleLink, verifiedBarnardFrames } from "./guided-observations";
+import { BarnardValidation, BarnardMethod, Blink, CometWalkthrough, WorkedExampleLink, verifiedBarnardFrames } from "./guided-observations";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 type Target = {
@@ -262,6 +262,7 @@ const pageCopy: Record<Exclude<View, "home">, { title: string; intro: string }> 
 };
 
 export default function Explorer({ view }: { view: View }) {
+  const [barnardOpen, setBarnardOpen] = useState(false);
   const [targets, setTargets] = useState<Target[]>([]);
   const [target, setTarget] = useState<Target | null>(null);
   const [observations, setObservations] = useState<Observation[]>([]);
@@ -460,6 +461,16 @@ export default function Explorer({ view }: { view: View }) {
     return () => { current.onload = null; };
   }, [view, target, frame, nextFrame]);
 
+  useEffect(() => {
+    if (view !== "evidence") return;
+    const openLinkedExample = () => {
+      if (window.location.hash === "#barnard-example") setBarnardOpen(true);
+    };
+    openLinkedExample();
+    window.addEventListener("hashchange", openLinkedExample);
+    return () => window.removeEventListener("hashchange", openLinkedExample);
+  }, [view]);
+
   const targetControls = (
     <div className="context-bar">
       <div className="context-target">
@@ -504,7 +515,9 @@ export default function Explorer({ view }: { view: View }) {
               {frame && target && (
                 <figcaption className="home-image-caption">
                   <strong>{target.name}</strong>
-                  <time dateTime={frame.observed_at}>{formatDate(frame.observed_at, false)} UTC</time>
+                  <time dateTime={frame.observed_at}>{formatDate(frame.observed_at)}</time>
+                  <span>SPHEREx {frame.release} · {frame.channel.replace("SPHEREx-", "")} · {frame.wavelength_min_um.toFixed(2)}–{frame.wavelength_max_um.toFixed(2)} μm</span>
+                  <Link href={viewLink("explorer", target.id, frame.channel, frame.id)}>Open this exposure <span aria-hidden="true">↗</span></Link>
                 </figcaption>
               )}
             </figure>
@@ -530,7 +543,7 @@ export default function Explorer({ view }: { view: View }) {
           <header className="page-heading">
             <div><h1>{pageCopy[view].title}</h1><p>{pageCopy[view].intro}</p></div>
             {view === "explorer" && <a className="page-jump" href="#comet-title">Follow comet 3I/ATLAS <span aria-hidden="true">↓</span></a>}
-            {view === "evidence" && <a className="page-jump" href="#barnard-example">Barnard’s Star example <span aria-hidden="true">↓</span></a>}
+            {view === "evidence" && <a className="page-jump" href="#barnard-example" aria-controls="barnard-example" aria-expanded={barnardOpen} onClick={() => setBarnardOpen(true)}>Barnard’s Star example <span aria-hidden="true">↓</span></a>}
           </header>
           {view !== "method" && targetControls}
 
@@ -545,13 +558,13 @@ export default function Explorer({ view }: { view: View }) {
                     </div>
                     <span className="sequence-count">{frame ? `${frameIndex + 1} / ${channelObservations.length}` : "— / —"}</span>
                   </div>
+                  <div className="playback-controls"><button type="button" className="play-button" onClick={() => setPlaying((value) => !value)} disabled={channelObservations.length < 2} aria-label={playing ? "Pause sequence" : "Play sequence"}>{playing ? "Ⅱ" : "▶"}</button><label htmlFor="frame-select">FRAME</label><input id="frame-select" type="range" min="0" max={Math.max(0, channelObservations.length - 1)} value={frameIndex} disabled={!channelObservations.length} onChange={(event) => { setPlaying(false); setFrameIndex(Number(event.target.value)); }} aria-valuetext={frame ? formatDate(frame.observed_at) : "No frame"} /><span className="channel-control"><label htmlFor="channel-select">CHANNEL</label><select id="channel-select" value={channel} disabled={!channels.length} onChange={(event) => { setChannel(event.target.value); setFrameIndex(0); setPlaying(false); }}>
+                    {channels.length ? channels.map((item) => <option key={item} value={item}>{item.replace("SPHEREx-", "")}</option>) : <option value="">—</option>}
+                  </select></span></div>
                   <figure className="deck-stage">
                     {frame && target && !previewFailed ? <img className="deck-image" src={previewUrl(target.id, frame.id)} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewFailed ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "Select a sky field"} detail={previewFailed ? "You can still review the observation details." : "Choose a field to view its images."} />}
                     {frame && !previewFailed && <figcaption className="deck-plate-caption">{frame.release} / {frame.channel.replace("SPHEREx-", "")}</figcaption>}
                   </figure>
-                  <div className="playback-controls"><button type="button" className="play-button" onClick={() => setPlaying((value) => !value)} disabled={channelObservations.length < 2} aria-label={playing ? "Pause sequence" : "Play sequence"}>{playing ? "Ⅱ" : "▶"}</button><label htmlFor="frame-select">FRAME</label><input id="frame-select" type="range" min="0" max={Math.max(0, channelObservations.length - 1)} value={frameIndex} disabled={!channelObservations.length} onChange={(event) => { setPlaying(false); setFrameIndex(Number(event.target.value)); }} aria-valuetext={frame ? formatDate(frame.observed_at) : "No frame"} /><span className="channel-control"><label htmlFor="channel-select">CHANNEL</label><select id="channel-select" value={channel} disabled={!channels.length} onChange={(event) => { setChannel(event.target.value); setFrameIndex(0); setPlaying(false); }}>
-                    {channels.length ? channels.map((item) => <option key={item} value={item}>{item.replace("SPHEREx-", "")}</option>) : <option value="">—</option>}
-                  </select></span></div>
                   {frame && <p className="frame-caption">Brightness is scaled for display.</p>}
                 </section>
                 <aside className="deck-aside">
@@ -596,13 +609,32 @@ export default function Explorer({ view }: { view: View }) {
               </div>
 
               {comparison && <ComparisonResult comparison={comparison} />}
-              <BarnardValidation />
+              <BarnardValidation open={barnardOpen} onToggle={setBarnardOpen} />
             </section>
           )}
 
           {view === "archive" && (
             <section className="card archive-card"><div className="archive-toolbar"><div><h2>{loadingObservations ? "Loading records…" : `${filteredObservations.length} ${filteredObservations.length === 1 ? "observation" : "observations"}`}</h2></div><div className="archive-filters"><label className="search-box"><span aria-hidden="true">⌕</span><span className="sr-only">Search archive records</span><input type="search" placeholder="Search IDs, channel, date…" value={query} onChange={(event) => { setQuery(event.target.value); setVisibleCount(24); }} /></label><label className="filter-select"><span className="sr-only">Filter by detector channel</span><select value={archiveChannel} onChange={(event) => { setArchiveChannel(event.target.value); setVisibleCount(24); }}><option>All channels</option>{channels.map((item) => <option key={item}>{item}</option>)}</select></label></div></div>
               <div className="archive-table-wrap" tabIndex={0} role="region" aria-label="Observation records table"><table className="archive-table"><thead><tr><th>Observation</th><th>Observed · UTC</th><th>Channel</th><th>Wavelength</th><th>Release</th><th>Variance</th></tr></thead><tbody>{filteredObservations.slice(0, visibleCount).map((item) => <tr key={item.id}><td><details className="record-disclosure"><summary><code>{item.id}</code></summary><div className="record-provenance"><p><strong>Source record</strong></p>{item.quality_flags?.length ? <p>Quality flags: {item.quality_flags.join(", ")}</p> : <p>No quality flags reported.</p>}{safeUrl(item.product_url) && <a href={safeUrl(item.product_url)!} target="_blank" rel="noreferrer">Open source product ↗</a>}</div></details></td><td>{formatDate(item.observed_at)}</td><td>{item.channel.replace("SPHEREx-", "")}</td><td>{item.wavelength_min_um.toFixed(3)}–{item.wavelength_max_um.toFixed(3)} μm</td><td><span className="table-release">{item.release}</span></td><td>{item.variance_available == null ? "—" : item.variance_available ? "Available" : "No"}</td></tr>)}</tbody></table></div>
+              <div className="archive-mobile-list" aria-label="Observation records">
+                {filteredObservations.slice(0, visibleCount).map((item) => (
+                  <details key={item.id} className="archive-mobile-record">
+                    <summary>
+                      <time dateTime={item.observed_at}>{formatDate(item.observed_at)}</time>
+                      <span>{item.channel.replace("SPHEREx-", "")} · {item.wavelength_min_um.toFixed(3)}–{item.wavelength_max_um.toFixed(3)} μm</span>
+                    </summary>
+                    <div className="archive-mobile-detail">
+                      <dl>
+                        <div><dt>Product ID</dt><dd><code>{item.id}</code></dd></div>
+                        <div><dt>Release</dt><dd>{item.release}</dd></div>
+                        <div><dt>Variance</dt><dd>{item.variance_available == null ? "Not reported" : item.variance_available ? "Available" : "Unavailable"}</dd></div>
+                      </dl>
+                      {item.quality_flags?.length ? <p>Quality flags: {item.quality_flags.join(", ")}</p> : <p>No quality flags reported.</p>}
+                      {safeUrl(item.product_url) && <a href={safeUrl(item.product_url)!} target="_blank" rel="noreferrer">Open source product ↗</a>}
+                    </div>
+                  </details>
+                ))}
+              </div>
               {!loadingObservations && filteredObservations.length === 0 && <EmptyState title="No matching records" detail={observations.length ? "Try a different observation ID, date or detector." : message} />}
               {filteredObservations.length > visibleCount && <button className="load-more" type="button" onClick={() => setVisibleCount((count) => count + 24)}>Load more records <span aria-hidden="true">↓</span></button>}
             </section>
@@ -615,6 +647,7 @@ export default function Explorer({ view }: { view: View }) {
                 <article className="method-step"><div><h2>Image previews</h2><p>Each preview shows a cutout around fixed sky coordinates. Brightness is scaled for each image so faint detail is easier to see. Use the FITS files for measurements.</p></div></article>
                 <article className="method-step"><div><h2>Scientific comparisons</h2><p>Measuring a change requires matching the wavelength at the target, aligning the images, interpreting pixel flags and accounting for uncertainty. A moving target may also need a different cutout center at each exposure.</p></div></article>
               </div>
+              <BarnardMethod />
               <div className="method-links"><a href="https://irsa.ipac.caltech.edu/Missions/spherex.html" target="_blank" rel="noreferrer">SPHEREx at IRSA <span aria-hidden="true">↗</span></a></div>
             </>
           )}

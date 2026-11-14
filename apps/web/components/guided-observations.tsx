@@ -37,15 +37,24 @@ export function Blink({ frames }: { frames: [BlinkFrame, BlinkFrame] }) {
         ))}
       </div>
       {failed && <p role="status">An aligned preview could not be displayed.</p>}
-      <p aria-live="polite">Observation {index === 0 ? "A" : "B"} · {observationDate(frames[index].date)}</p>
+      <p className="mask-legend"><span aria-hidden="true" /> Blue pixels are excluded from the shared comparison.</p>
+      <dl className="blink-dates">
+        {frames.map((frame, i) => (
+          <div key={i} className={i === index ? "is-current" : undefined}>
+            <dt>Observation {i === 0 ? "A" : "B"}</dt>
+            <dd><time dateTime={frame.date}>{observationDate(frame.date)}</time></dd>
+          </div>
+        ))}
+      </dl>
+      <span className="sr-only" aria-live="polite">Showing observation {index === 0 ? "A" : "B"}</span>
       <div className="observation-actions" onKeyDown={(event) => {
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
           event.preventDefault();
           setIndex(event.key === "ArrowLeft" ? 0 : 1);
         }
       }}>
-        <button type="button" aria-pressed={index === 0} onClick={() => setIndex(0)}>Show A</button>
-        <button type="button" aria-pressed={index === 1} onClick={() => setIndex(1)}>Show B</button>
+        <button type="button" aria-label="Show A" aria-pressed={index === 0} onClick={() => setIndex(0)}>Show A</button>
+        <button type="button" aria-label="Show B" aria-pressed={index === 1} onClick={() => setIndex(1)}>Show B</button>
         <button type="button" onClick={() => setIndex(1 - index)}>Toggle A/B</button>
       </div>
       <label>Zoom <select value={zoom} onChange={(event) => setZoom(Number(event.target.value))}>
@@ -103,7 +112,8 @@ export function CometWalkthrough() {
             <button type="button" disabled={index === comet.frames.length - 1} onClick={() => setIndex(index + 1)}>Next exposure</button>
             <label><input type="checkbox" checked={showMarker} onChange={(event) => setShowMarker(event.target.checked)} /> Show predicted position</label>
           </div>
-          <p>Predicted position from IRSA: {frame.ra.toFixed(5)}°, {frame.dec.toFixed(5)}° (ICRS). The circle marks the predicted position. These D6 images share a display scale. The archive flags the predicted center as an outlier in all three exposures. Local wavelength can vary, so use this sequence for visual inspection.</p>
+          <p><span className="comet-marker-key" aria-hidden="true" /> The ring marks IRSA’s predicted position: {frame.ra.toFixed(5)}°, {frame.dec.toFixed(5)}° (ICRS).</p>
+          <p>These D6 images share a display scale. The archive flags the predicted center as an outlier in all three exposures. Local wavelength can vary.</p>
           <div className="cutout-links">
             <a href={frame.source} target="_blank" rel="noreferrer">Source product ↗</a>
             <a href="https://irsa.ipac.caltech.edu/data/SPHEREx/docs/comet3iatlas/index.html" target="_blank" rel="noreferrer">IRSA observation table ↗</a>
@@ -130,9 +140,9 @@ const barnardParams = new URLSearchParams({
   target: "barnards-star", channel: "SPHEREx-D3", a: barnard.frames[0].id, b: barnard.frames[1].id,
 });
 
-export function BarnardValidation() {
+export function BarnardValidation({ open, onToggle }: { open: boolean; onToggle: (open: boolean) => void }) {
   return (
-    <details className="card guided-observation worked-example" id="barnard-example">
+    <details className="card guided-observation worked-example" id="barnard-example" open={open} onToggle={(event) => onToggle(event.currentTarget.open)}>
       <summary>
         <img src={barnard.frames[0].image} alt="" width={72} height={72} loading="lazy" />
         <span><strong>Worked example: Barnard’s Star</strong><small>Inspect the flagged pixels and wavelength mismatch in two D3 exposures.</small></span>
@@ -164,5 +174,29 @@ export function BarnardValidation() {
         <a href="https://gea.esac.esa.int/archive/" target="_blank" rel="noreferrer">Gaia DR3 source {barnard.gaia.source_id} ↗</a>
       </div>
     </details>
+  );
+}
+
+
+export function BarnardMethod() {
+  const stages = [
+    { image: barnard.method_images.original.image, title: "Original cutout", detail: "Exposure A on its native detector grid, with its own display stretch.", alt: "Original infrared cutout of Barnard’s Star with a bright area near the center" },
+    { image: barnard.frames[0].image, title: "Aligned observation", detail: "Exposure A on the shared sky grid. Both exposures use the same brightness scale.", alt: "Exposure A shown in grayscale with excluded pixels in blue" },
+    { image: barnard.method_images.mask.image, title: "Shared pixel mask", detail: `${barnard.aligned_pixels} of ${barnard.grid_pixels} pixels are usable in both exposures. Blue marks excluded pixels.`, alt: "Blue pixels show areas excluded from the comparison, including the star’s predicted center" },
+  ];
+  return (
+    <section className="card method-example" aria-labelledby="method-example-title">
+      <h2 id="method-example-title">From cutout to comparison</h2>
+      <p>Two SPHEREx D3 exposures of the Barnard’s Star field illustrate how alignment and pixel masking prepare images for comparison.</p>
+      <div className="method-stages">
+        {stages.map((stage) => (
+          <figure key={stage.title}>
+            <img src={stage.image} alt={stage.alt} width={29} height={29} loading="lazy" />
+            <figcaption><strong>{stage.title}</strong><span>{stage.detail}</span></figcaption>
+          </figure>
+        ))}
+      </div>
+      <Link href="/evidence#barnard-example">Open the Barnard’s Star example <span aria-hidden="true">↗</span></Link>
+    </section>
   );
 }
