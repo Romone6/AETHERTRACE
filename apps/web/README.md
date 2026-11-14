@@ -1,6 +1,6 @@
 # Aethertrace web app
 
-This is the Next.js App Router frontend. It reads targets, observations, and comparisons from the canonical API contract at `../../packages/contracts/openapi.yaml`. No observation data is bundled with the frontend.
+This is the Next.js App Router frontend. It reads targets, observations, and comparisons from the canonical API contract at `../../packages/contracts/openapi.yaml`. The frontend also bundles four field composites, the 3I/ATLAS walkthrough, and two source-verified Barnard’s Star records with previews for archive outages.
 
 ## Local development
 
@@ -22,7 +22,7 @@ npm install
 AETHERTRACE_API_URL=http://127.0.0.1:8000 npm run dev
 ```
 
-The Next.js rewrite proxies `/api/*` to the API origin. Set `AETHERTRACE_API_URL` for another API host. Open <http://localhost:3000>. When the API is unavailable, the explorer shows an explicit empty state.
+The Next.js rewrite proxies `/api/*` to the API origin. Set `AETHERTRACE_API_URL` for another API host. Open <http://localhost:3000>. When the archive or API is unavailable, the comet walkthrough and field composites still load. Choose Barnard’s Star for two labeled saved exposures and their comparison.
 
 ## Production
 

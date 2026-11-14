@@ -1,18 +1,58 @@
 # AETHERTRACE
 
-**Explore the infrared universe. Discover what changes. Understand the evidence.**
+A public-facing SPHEREx observation explorer built for the NASA Space Apps **Planet X and SPHEREx** challenge. Step through calibrated source exposures with a shared display scale, inspect what the archive flags, and trace each preview back to its source.
 
-A local explorer prototype for authentic SPHEREx imagery with archive search, FITS previews, and traceable observation metadata. Scientific change detection requires calibrated, registered measurements.
+![Three SPHEREx exposures of 3I/ATLAS shown in the Aethertrace timeline](docs/media/comet-demo.gif)
+
+Try [3I/ATLAS](http://localhost:3000/comet) after starting the app. Step through the three images, reveal coverage gaps, and copy a link to the current exposure and overlays. In [Evidence](http://localhost:3000/evidence#barnard-example), the Barnard’s Star pair shows how mismatched wavelengths and flagged pixels can prevent a brightness measurement.
+
+## Run the demo
+
+Requires Python 3.11+ and Node.js 20.9+. Run the API and frontend in separate terminals from the repository root.
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r services/api/requirements.txt
+uvicorn services.api.app:app --port 8000
+```
+
+```sh
+npm --prefix apps/web ci
+AETHERTRACE_API_URL=http://127.0.0.1:8000 npm --prefix apps/web run dev
+```
+
+Open [Aethertrace](http://localhost:3000/). To try the saved demo, stop the API and open the site in a fresh browser session. The comet sequence and four field composites still load. Use **Open saved exposures** from Archive when available, or choose **Barnard’s Star** to inspect the two saved DR1 exposures.
+
+## How FITS becomes a preview
+
+```mermaid
+flowchart LR
+  A[IRSA spectral image FITS] --> B[Read brightness and sky coordinates]
+  B --> C[Native grid and per-exposure stretch]
+  B --> D[Shared sky grid and coverage]
+  D --> E[Shared asinh stretch]
+  C --> F[Explorer and Archive previews]
+  E --> G[Comet timeline and Evidence]
+```
+
+To rebuild the comet sequence, download the three FITS cutouts linked under **Source and processing details** in chronological order. The script checks each input against the pinned SHA-256 before rendering.
+
+```sh
+PYTHONPATH=. .venv/bin/python scripts/render_comet_sequence.py path/to/first.fits path/to/second.fits path/to/third.fits
+```
+
+Render settings, source links, and checksums are recorded in the [comet manifest](apps/web/public/observations/comet/processing.json) and [Barnard manifest](apps/web/public/observations/barnard/processing.json). The [observation audit](docs/observation-audit.md) explains the cutout request, resampling, quality flags, and scientific limits.
 
 ## Current status
 
 - Live IRSA queries returned 934 SPHEREx DR1 Level-2 records across four sky fields on 2026-11-14. Barnard's Star returned 240, Andromeda 229, the Orion Nebula 241, and the Pleiades 224. Each field has observations in all six detector channels.
 - The Next.js interface displays time-ordered cutout previews within a selected detector channel. The cutout center uses a fixed coordinate; Barnard's Star proper motion has not been applied, so the displayed cutouts are not verified as centered on the star.
 - The API preserves unique product IDs, exposure intervals, wavelength bounds, channel, and source-row provenance. Comparisons remain `INSUFFICIENT_DATA`; no variability result is claimed. See [query evidence](docs/science-query-evidence.md) and [scientific feasibility](docs/scientific-feasibility.md).
-- The Evidence page displays two source cutouts side by side with FITS quality counts, source links, and the limits of visual comparison.
+- The Evidence page provides aligned blink previews alongside native-grid cutouts, FITS quality counts, source links, and the limits of visual comparison.
 - Source code is available in the public [GitHub repository](https://github.com/Romone6/AETHERTRACE). The demo runs locally.
 
-## Run locally
+## Developer reference
 
 See [API setup](services/api/README.md) and [web app setup](apps/web/README.md).
 

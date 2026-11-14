@@ -11,6 +11,21 @@ from PIL import Image
 WEB = Path(__file__).parents[1] / "apps/web"
 
 
+def test_saved_demo_contains_exact_barnard_records_and_native_previews():
+    root = WEB / "public/observations/barnard"
+    snapshot = json.loads((root / "saved-exposures.json").read_text())
+    aligned = json.loads((root / "processing.json").read_text())
+    assert {entry["observation"]["id"] for entry in snapshot["exposures"]} == {frame["id"] for frame in aligned["frames"]}
+    for entry in snapshot["exposures"]:
+        source = next(frame for frame in aligned["frames"] if frame["id"] == entry["observation"]["id"])
+        assert entry["input_sha256"] == source["sha256"]
+        assert entry["observation"]["product_url"] == source["source"]
+        path = WEB / "public" / entry["preview"].lstrip("/")
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == entry["preview_sha256"]
+        with Image.open(path) as image:
+            assert image.mode == "L"
+
+
 def test_comet_coverage_overlay_matches_the_shared_display_footprint():
     root = WEB / "public/observations/comet"
     manifest = json.loads((root / "processing.json").read_text())

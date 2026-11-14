@@ -316,10 +316,7 @@ def _comparison_cutout(observation: dict[str, Any], target_info: dict[str, Any])
 @app.get("/api/preview")
 def get_preview(target: str = Query(...), observation_id: str = Query(...), size: float = Query(DEFAULT_CUTOUT_SIZE, gt=0, le=0.1)):
     """Return a labeled display preview; this is not photometry or a change measurement."""
-    import numpy as np
-    from astropy.io import fits
-    from PIL import Image
-    from services.api.display import asinh_grayscale, percentile_limits
+    from services.api.display import render_cutout_png
 
     _target(target)
     size = _number(size, "size", 0.1)
@@ -331,27 +328,10 @@ def get_preview(target: str = Query(...), observation_id: str = Query(...), size
             return _preview_response(cached[1], cached[2])
     fits_response = get_cutout(target, observation_id, size)
     try:
-        with fits.open(io.BytesIO(fits_response.body), memmap=False) as hdus:
-            image_hdu = next((hdu for hdu in hdus if hdu.name.upper() == "IMAGE" and hdu.data is not None), None)
-            if image_hdu is None:
-                raise ValueError("FITS product has no IMAGE extension")
-            pixels = np.asarray(image_hdu.data, dtype=np.float32)
-            finite = np.isfinite(pixels)
-            if pixels.ndim != 2 or not finite.any():
-                raise ValueError("FITS IMAGE extension has no finite 2D pixels")
-            low, high = percentile_limits(pixels[finite])
-            grayscale = asinh_grayscale(pixels, finite, low, high)
-            preview = Image.fromarray(grayscale).resize(
-                (max(1, grayscale.shape[1] * 8), max(1, grayscale.shape[0] * 8)),
-                resample=Image.Resampling.NEAREST,
-            )
-            output = io.BytesIO()
-            preview.save(output, format="PNG", optimize=True)
-    except HTTPException:
-        raise
+        png = render_cutout_png(fits_response.body)
     except Exception as error:
         raise HTTPException(502, "IRSA FITS image could not be rendered") from error
-    png, source = output.getvalue(), fits_response.headers["X-Source-URL"]
+    source = fits_response.headers["X-Source-URL"]
     if len(png) <= 512 * 1024:
         with _cutout_cache_lock:
             _preview_cache[key] = (monotonic() + 3600, png, source)

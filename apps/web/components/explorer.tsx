@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { ShareLink } from "./share-link";
 import { BarnardValidation, BarnardMethod, Blink, CometWalkthrough, WorkedExampleLink, verifiedBarnardFrames } from "./guided-observations";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import savedDemo from "../public/observations/barnard/saved-exposures.json";
 import { composites, DisplayMethodLink, ImageryMethods, SkyComposite } from "./sky-composites";
 
 type Target = {
@@ -37,6 +39,7 @@ type Comparison = {
   statistics?: unknown;
   uncertainty?: Record<string, unknown>;
   limitations: string[];
+  saved?: boolean;
 };
 
 type FitsInspection = {
@@ -52,6 +55,7 @@ type FitsInspection = {
 type View = "home" | "explorer" | "evidence" | "archive" | "method";
 
 let targetCatalog: Promise<Target[]> | null = null;
+const savedExposures = new Map(savedDemo.exposures.map((entry) => [entry.observation.id, entry]));
 const observationCatalog = new Map<string, Promise<Observation[]>>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -140,14 +144,16 @@ function isFitsInspection(value: unknown): value is FitsInspection {
     typeof value.spectral_wcs_present === "boolean";
 }
 
-function ComparisonCutout({ observation, targetId, label, inspection }: {
+function ComparisonCutout({ observation, targetId, label, inspection, savedOnly }: {
   observation: Observation;
   targetId: string;
   label: string;
   inspection: unknown;
+  savedOnly?: boolean;
 }) {
   const [previewFailed, setPreviewFailed] = useState(false);
   const params = new URLSearchParams({ target: targetId, observation_id: observation.id, size: "0.05" });
+  const savedPreview = targetId === savedDemo.target && (previewFailed || savedOnly) ? savedExposures.get(observation.id)?.preview : undefined;
   const sourceUrl = safeUrl(observation.product_url);
   const hasInspection = isFitsInspection(inspection);
 
@@ -160,12 +166,13 @@ function ComparisonCutout({ observation, targetId, label, inspection }: {
         <code>{observation.id}</code>
       </figcaption>
       <div className="comparison-image">
-        {previewFailed ? (
+        {previewFailed && !savedPreview ? (
           <EmptyState title="Preview unavailable" detail="The source record remains available below." />
         ) : (
-          <img src={`/api/preview?${params}`} alt={`Display-only SPHEREx cutout from ${formatDate(observation.observed_at)}`} onError={() => setPreviewFailed(true)} />
+          <img src={savedPreview ?? `/api/preview?${params}`} alt={`Display-only SPHEREx cutout from ${formatDate(observation.observed_at)}`} onError={() => setPreviewFailed(true)} />
         )}
       </div>
+      {savedPreview && <p className="saved-preview-note">Saved DR1 preview</p>}
       {hasInspection ? (
         <dl className="cutout-diagnostics">
           <div><dt>FITS image size</dt><dd>{inspection.width} × {inspection.height} pixels</dd></div>
@@ -178,7 +185,7 @@ function ComparisonCutout({ observation, targetId, label, inspection }: {
         <p className="cutout-inspection-status">{isRecord(inspection) && inspection.status === "unavailable" ? "FITS inspection unavailable." : "FITS quality checks unavailable."}</p>
       )}
       <div className="cutout-links">
-        <a href={`/api/archive/cutout?${params}`}>Download FITS cutout</a>
+        {!savedOnly && <a href={`/api/archive/cutout?${params}`}>Download FITS cutout</a>}
         {sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer">Open source product <span aria-hidden="true">↗</span></a>}
       </div>
     </figure>
@@ -209,24 +216,6 @@ function ArchivePreviewLink({ target, observation }: { target: Target; observati
   );
 }
 
-function ShareLink({ href }: { href: string }) {
-  const [message, setMessage] = useState("");
-  return (
-    <div className="observation-actions">
-      <a href={href}>Link to this view</a>
-      <button type="button" onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(new URL(href, window.location.href).href);
-          setMessage("Link copied.");
-        } catch {
-          setMessage("Open the link to copy its address.");
-        }
-      }}>Copy link</button>
-      <span role="status">{message}</span>
-    </div>
-  );
-}
-
 function ComparisonResult({ comparison }: { comparison: Comparison }) {
   const fits = isRecord(comparison.statistics) && comparison.statistics.fits_inspection;
   const alignment = isRecord(comparison.statistics) && comparison.statistics.visual_alignment;
@@ -247,6 +236,7 @@ function ComparisonResult({ comparison }: { comparison: Comparison }) {
         </div>
       </div>
       <ShareLink href={viewLink("evidence", comparison.target, a.channel, a.id, b.id)} />
+      {comparison.saved && <p className="saved-preview-note">Saved DR1 comparison · previews and FITS inspection from the verified cutouts.</p>}
       {blinkFrames ? (
         <>
           {!freshAlignment && <p className="comparison-caveat">Showing the saved alignment for these exact exposures.</p>}
@@ -258,8 +248,8 @@ function ComparisonResult({ comparison }: { comparison: Comparison }) {
         <p className="comparison-caveat">Each 0.05° cutout uses its original pixel grid and an individual grayscale stretch. <DisplayMethodLink kind="previews" /></p>
       </div>
       <div className="comparison-cutouts">
-        <ComparisonCutout key={`a:${comparison.observation_a.id}`} observation={comparison.observation_a} targetId={comparison.target} label="Observation A" inspection={isRecord(fits) ? fits.observation_a : undefined} />
-        <ComparisonCutout key={`b:${comparison.observation_b.id}`} observation={comparison.observation_b} targetId={comparison.target} label="Observation B" inspection={isRecord(fits) ? fits.observation_b : undefined} />
+        <ComparisonCutout key={`a:${comparison.observation_a.id}`} observation={comparison.observation_a} targetId={comparison.target} label="Observation A" savedOnly={comparison.saved} inspection={isRecord(fits) ? fits.observation_a : undefined} />
+        <ComparisonCutout key={`b:${comparison.observation_b.id}`} observation={comparison.observation_b} targetId={comparison.target} label="Observation B" savedOnly={comparison.saved} inspection={isRecord(fits) ? fits.observation_b : undefined} />
       </div>
       <p className="comparison-caveat">
         FITS counts describe each plane independently. Nonzero flags can record detector status or processing information.
@@ -279,13 +269,13 @@ const pageCopy: Record<Exclude<View, "home">, { title: string; intro: string }> 
 export default function Explorer({ view }: { view: View }) {
   const [barnardOpen, setBarnardOpen] = useState(false);
   const [showComposite, setShowComposite] = useState(true);
-  const [targets, setTargets] = useState<Target[]>([]);
+  const [targets, setTargets] = useState<Target[]>(savedDemo.targets);
   const [target, setTarget] = useState<Target | null>(null);
   const [observations, setObservations] = useState<Observation[]>([]);
-  const [serviceState, setServiceState] = useState<"loading" | "ready" | "error">("loading");
   const observationRequest = useRef(0);
   const [message, setMessage] = useState("Loading sky fields…");
   const [loadingObservations, setLoadingObservations] = useState(false);
+  const [savedCatalog, setSavedCatalog] = useState(false);
   const [channel, setChannel] = useState("SPHEREx-D3");
   const [frameIndex, setFrameIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -303,6 +293,9 @@ export default function Explorer({ view }: { view: View }) {
   const channels = Array.from(new Set(observations.map((item) => item.channel))).sort();
   const channelObservations = observations.filter((item) => item.channel === channel);
   const frame = channelObservations[frameIndex];
+  const savedPreview = target?.id === savedDemo.target && frame && (savedCatalog || previewFailed)
+    ? savedExposures.get(frame.id)?.preview : undefined;
+  const previewUnavailable = previewFailed && !savedPreview;
   const compositeField = target?.id ?? "orion-nebula";
   const hasComposite = Boolean(composites[compositeField]);
   const showingComposite = showComposite && hasComposite;
@@ -318,26 +311,22 @@ export default function Explorer({ view }: { view: View }) {
     let active = true;
     async function load() {
       try {
-        const data = await getTargets();
-        if (!active) return;
-        setTargets(data);
-        setServiceState("ready");
         const params = new URLSearchParams(window.location.search);
         const requestedField = params.get("target");
         const savedTarget = window.sessionStorage.getItem("aethertrace-field");
-        const first = data.find((item) => item.id === requestedField)
-          ?? data.find((item) => item.id === savedTarget)
-          ?? (view === "home" ? data.find((item) => item.id === "orion-nebula") : undefined)
-          ?? data[0];
+        const first = savedDemo.targets.find((item) => item.id === requestedField)
+          ?? savedDemo.targets.find((item) => item.id === savedTarget)
+          ?? (view === "home" ? savedDemo.targets.find((item) => item.id === "orion-nebula") : undefined)
+          ?? savedDemo.targets[0];
         if (!first) {
           setMessage("No sky fields are available.");
           return;
         }
         setTarget(first);
+        void getTargets().then((data) => { if (active && data.length) setTargets(data); }).catch(() => {});
         await loadObservations(first, params);
       } catch {
         if (!active) return;
-        setServiceState("error");
         setMessage("Sky fields are temporarily unavailable.");
       }
     }
@@ -353,8 +342,14 @@ export default function Explorer({ view }: { view: View }) {
     setLoadingObservations(true);
     setMessage(`Loading observations for ${selected.name}…`);
     try {
-      const data = await getObservations(selected.id);
+      let usingSaved = false;
+      const data = await getObservations(selected.id).catch((error) => {
+        if (selected.id !== savedDemo.target) throw error;
+        usingSaved = true;
+        return savedDemo.exposures.map((entry) => entry.observation);
+      });
       if (request !== observationRequest.current) return;
+      setSavedCatalog(usingSaved);
       const sorted = [...data].sort((a, b) => Date.parse(a.observed_at) - Date.parse(b.observed_at));
       setObservations(sorted);
       const initialChannel = data.some((item) => item.channel === "SPHEREx-D3") ? "SPHEREx-D3" : (data[0]?.channel ?? "");
@@ -380,11 +375,12 @@ export default function Explorer({ view }: { view: View }) {
         setMessage("The linked exposure is unavailable. Showing the first available frame.");
         return;
       }
-      setMessage(data.length ? `${data.length.toLocaleString()} observations · ${new Set(data.map((item) => item.channel)).size} detector channels` : "No observations found for this field.");
+      setMessage(usingSaved ? "Archive unavailable · 2 saved DR1 exposures" : data.length ? `${data.length.toLocaleString()} observations · ${new Set(data.map((item) => item.channel)).size} detector channels` : "No observations found for this field.");
     } catch {
       if (request !== observationRequest.current) return;
       setObservations([]);
-      setMessage("Could not load observations. Try selecting another field.");
+      setSavedCatalog(false);
+      setMessage("Archive unavailable. The saved exposures are in the Barnard’s Star field.");
     } finally {
       if (request === observationRequest.current) setLoadingObservations(false);
     }
@@ -396,6 +392,7 @@ export default function Explorer({ view }: { view: View }) {
     window.sessionStorage.setItem("aethertrace-field", selected.id);
     setTarget(selected);
     setObservations([]);
+    setSavedCatalog(false);
     setArchiveChannel("All channels");
     setQuery("");
     setVisibleCount(24);
@@ -441,6 +438,7 @@ export default function Explorer({ view }: { view: View }) {
     setLoadingComparison(true);
     setComparisonMessage("Checking compatibility and inspecting the source cutouts…");
     try {
+      if (savedCatalog) throw new Error("Live comparison unavailable.");
       const params = new URLSearchParams({ target: targetId, epoch_a: epochA, epoch_b: epochB, align_cutouts: "true" });
       const response = await fetch(`/api/compare?${params}`, { headers: { Accept: "application/json" }, signal: request.signal });
       if (!response.ok) throw new Error(response.status === 422 ? "Choose observations with matching release, detector and wavelength coverage." : "Comparison is temporarily unavailable.");
@@ -455,7 +453,19 @@ export default function Explorer({ view }: { view: View }) {
       setComparison(data as Comparison);
       setComparisonMessage("");
     } catch (error) {
-      if (!request.signal.aborted) setComparisonMessage(error instanceof Error ? error.message : "Comparison unavailable.");
+      if (request.signal.aborted) return;
+      const a = savedExposures.get(epochA);
+      const b = savedExposures.get(epochB);
+      if (targetId === savedDemo.target && a && b) {
+        setComparison({
+          target: targetId, observation_a: a.observation, observation_b: b.observation,
+          status: "INSUFFICIENT_DATA", limitations: [], saved: true,
+          statistics: { fits_inspection: { observation_a: a.inspection, observation_b: b.inspection } },
+        });
+        setComparisonMessage("");
+      } else {
+        setComparisonMessage(error instanceof Error ? error.message : "Comparison unavailable.");
+      }
     } finally {
       if (comparisonRequest.current === request) {
         comparisonRequest.current = null;
@@ -472,7 +482,7 @@ export default function Explorer({ view }: { view: View }) {
 
   const nextFrame = channelObservations[frameIndex + 1];
   useEffect(() => {
-    if (view !== "explorer" || !frame || !nextFrame || !target) return;
+    if (view !== "explorer" || savedCatalog || !frame || !nextFrame || !target) return;
     const current = new Image();
     current.onload = () => {
       const next = new Image();
@@ -480,7 +490,7 @@ export default function Explorer({ view }: { view: View }) {
     };
     current.src = previewUrl(target.id, frame.id);
     return () => { current.onload = null; };
-  }, [view, target, frame, nextFrame]);
+  }, [view, target, frame, nextFrame, savedCatalog]);
 
   useEffect(() => {
     if (view !== "evidence") return;
@@ -496,12 +506,15 @@ export default function Explorer({ view }: { view: View }) {
     <div className="context-bar">
       <div className="context-target">
         <label htmlFor="target-select">Sky field</label>
-        <select id="target-select" value={target?.id ?? ""} disabled={serviceState !== "ready" || targets.length === 0} onChange={(event) => void chooseTarget(event.target.value)}>
-          {!targets.length && <option value="">{serviceState === "loading" ? "Loading catalog…" : "No targets available"}</option>}
+        <select id="target-select" value={target?.id ?? ""} disabled={!target || targets.length === 0} onChange={(event) => void chooseTarget(event.target.value)}>
+          {!targets.length && <option value="">{!target ? "Loading catalog…" : "No targets available"}</option>}
           {targets.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
       </div>
       <span className="context-message" role="status">{message}</span>
+      {message.startsWith("Archive unavailable") && target?.id !== savedDemo.target && (
+        <button className="preview-retry" type="button" onClick={() => void chooseTarget(savedDemo.target)}>Open saved exposures</button>
+      )}
     </div>
   );
 
@@ -518,27 +531,32 @@ export default function Explorer({ view }: { view: View }) {
               <p className="home-intro">
                 Explore SPHEREx observations across the sky, with clear context and provenance.
               </p>
-              <Link className="home-cta" href="/explorer">Explore observations</Link>
+              <div className="home-actions">
+                <Link className="home-cta" href="/explorer">Explore observations</Link>
+                <Link className="home-comet-link" href="/comet">Watch 3I/ATLAS move <span aria-hidden="true">↗</span></Link>
+              </div>
             </div>
+            <div className="home-field-control">{targetControls}</div>
             {showingComposite ? (
               <SkyComposite field={compositeField} id="home-image" />
             ) : (
               <figure id="home-image" className="home-visual">
-                {frame && target && !previewFailed ? (
+                {frame && target && !previewUnavailable ? (
                   <img
                     key={frame.id}
-                    src={previewUrl(target.id, frame.id)}
+                    src={savedPreview ?? previewUrl(target.id, frame.id)}
                     alt={`SPHEREx ${frame.release} preview of ${target.name}, observed ${formatDate(frame.observed_at)}.`}
                     onError={() => setPreviewFailed(true)}
                   />
                 ) : (
                   <p className="home-preview-status" role="status">
-                    {loadingObservations || serviceState === "loading" ? "Loading observation…" : "Preview unavailable"}
+                    {loadingObservations || !target ? "Loading observation…" : "Preview unavailable"}
                   </p>
                 )}
                 {frame && target && (
                   <figcaption className="home-image-caption">
                     <strong>{target.name}</strong>
+                    {savedPreview && <span>Saved DR1 preview</span>}
                     <time dateTime={frame.observed_at}>{formatDate(frame.observed_at)}</time>
                     <span>SPHEREx {frame.release} · {frame.channel.replace("SPHEREx-", "")} · {frame.wavelength_min_um.toFixed(2)}–{frame.wavelength_max_um.toFixed(2)} μm</span>
                     <Link href={viewLink("explorer", target.id, frame.channel, frame.id)}>Open this exposure <span aria-hidden="true">↗</span></Link>
@@ -563,17 +581,13 @@ export default function Explorer({ view }: { view: View }) {
             )}
             {!showingComposite && <p className="home-caveat">Individual grayscale stretch. <DisplayMethodLink kind="previews" /></p>}
           </section>
-          <section className="home-fields" aria-labelledby="home-fields-title">
-            <h2 id="home-fields-title">Browse sky fields</h2>
-            {targetControls}
-            <WorkedExampleLink />
-          </section>
+          <div className="home-fields"><WorkedExampleLink /></div>
         </>
       ) : (
         <div className="workspace">
           <header className="page-heading">
             <div><h1>{pageCopy[view].title}</h1><p>{pageCopy[view].intro}</p></div>
-            {view === "explorer" && <a className="page-jump" href="#comet-title">Follow comet 3I/ATLAS <span aria-hidden="true">↓</span></a>}
+            {view === "explorer" && <Link className="page-jump" href="/comet">Follow comet 3I/ATLAS <span aria-hidden="true">↗</span></Link>}
             {view === "evidence" && <a className="page-jump" href="#barnard-example" aria-controls="barnard-example" aria-expanded={barnardOpen} onClick={() => setBarnardOpen(true)}>Barnard’s Star example <span aria-hidden="true">↓</span></a>}
           </header>
           {view !== "method" && targetControls}
@@ -593,13 +607,13 @@ export default function Explorer({ view }: { view: View }) {
                     {channels.length ? channels.map((item) => <option key={item} value={item}>{item.replace("SPHEREx-", "")}</option>) : <option value="">—</option>}
                   </select></span></div>
                   <figure className="deck-stage">
-                    {frame && target && !previewFailed ? <img className="deck-image" src={previewUrl(target.id, frame.id)} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewFailed ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "Select a sky field"} detail={previewFailed ? "The archive cutout could not be loaded." : "Choose a field to view its images."} />}
-                    {frame && !previewFailed && <figcaption className="deck-plate-caption">{frame.release} / {frame.channel.replace("SPHEREx-", "")}</figcaption>}
+                    {frame && target && !previewUnavailable ? <img className="deck-image" src={savedPreview ?? previewUrl(target.id, frame.id)} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewUnavailable ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "No exposure available"} detail={previewUnavailable ? "The archive cutout could not be loaded." : "Choose a field to view its images."} />}
+                    {frame && !previewUnavailable && <figcaption className="deck-plate-caption">{frame.release} / {frame.channel.replace("SPHEREx-", "")}</figcaption>}
                   </figure>
                   {frame && (
                     <div className="frame-caption">
-                      <span>Individual grayscale stretch</span>
-                      {previewFailed && <button className="preview-retry" type="button" onClick={() => setPreviewFailed(false)}>Retry preview</button>}
+                      <span>{savedPreview ? "Saved DR1 preview · " : ""}Individual grayscale stretch</span>
+                      {previewUnavailable && <button className="preview-retry" type="button" onClick={() => setPreviewFailed(false)}>Retry preview</button>}
                       <DisplayMethodLink kind="previews" />
                     </div>
                   )}

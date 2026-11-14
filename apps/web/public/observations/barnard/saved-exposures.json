@@ -1,0 +1,243 @@
+{
+  "target": "barnards-star",
+  "targets": [
+    {
+      "id": "barnards-star",
+      "name": "Barnard's Star",
+      "ra_deg": 269.44628,
+      "dec_deg": 4.768,
+      "source": "Fixed ICRS field center used for the IRSA SPHEREx archive query."
+    },
+    {
+      "id": "andromeda",
+      "name": "Andromeda Galaxy (M31)",
+      "ra_deg": 10.684708,
+      "dec_deg": 41.26875,
+      "source": "Fixed ICRS field center used for the IRSA SPHEREx archive query."
+    },
+    {
+      "id": "orion-nebula",
+      "name": "Orion Nebula (M42)",
+      "ra_deg": 83.822083,
+      "dec_deg": -5.391111,
+      "source": "Fixed ICRS field center used for the IRSA SPHEREx archive query."
+    },
+    {
+      "id": "pleiades",
+      "name": "Pleiades (M45)",
+      "ra_deg": 56.75,
+      "dec_deg": 24.1167,
+      "source": "Fixed ICRS field center used for the IRSA SPHEREx archive query."
+    }
+  ],
+  "release": "DR1",
+  "exposures": [
+    {
+      "observation": {
+        "id": "ivo://irsa.ipac/spherex_dr1?2025W33_2C_0321_1/D3",
+        "observed_at": "2025-08-15T20:45:11.376000Z",
+        "observed_end": "2025-08-15T20:47:06.460800Z",
+        "release": "DR1",
+        "channel": "SPHEREx-D3",
+        "wavelength_um": 2.03235,
+        "wavelength_min_um": 1.6301,
+        "wavelength_max_um": 2.4346,
+        "provenance": {
+          "source": "IRSA SIA2",
+          "collection": "spherex_dr1",
+          "query_url": "https://irsa.ipac.caltech.edu/SIA",
+          "query_parameters": {
+            "COLLECTION": "spherex_dr1",
+            "RESPONSEFORMAT": "CSV",
+            "MAXREC": "500",
+            "POS": "CIRCLE 269.446280 4.768000 0.01"
+          },
+          "time_bounds_mjd": {
+            "t_min": 60902.864715,
+            "t_max": 60902.866047
+          },
+          "time_semantics": "observed_at is the SIA t_min lower bound; original bounds are retained",
+          "wavelength_bounds_um": {
+            "em_min": 1.6301,
+            "em_max": 2.4346
+          },
+          "wavelength_semantics": "wavelength_um is the midpoint of the SIA wavelength bounds",
+          "archive_fields": {
+            "s_ra": "268.33923849831331",
+            "s_dec": "3.6055052194421444",
+            "facility_name": "SPHEREx",
+            "instrument_name": "SPHEREx",
+            "dataproduct_subtype": "science",
+            "calib_level": "2",
+            "dataproduct_type": "image",
+            "energy_bandpassname": "SPHEREx-D3",
+            "energy_emband": "Infrared",
+            "obs_id": "2025W33_2C_0321_1",
+            "s_resolution": "3.075000",
+            "em_min": "1.63010e-06",
+            "em_max": "2.43460e-06",
+            "em_res_power": "40.600000",
+            "proposal_title": "SPHEREx LVF Survey Data",
+            "access_url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W33_2C/l2b-v27-2026-228/3/level2_2025W33_2C_0321_1D3_spx_l2b-v27-2026-228.fits",
+            "access_format": "image/fits",
+            "access_estsize": "61949",
+            "t_exptime": "113.582600",
+            "s_region": "POLYGON ICRS 266.6965181635169 5.487312459045988 270.1729132066038 5.171191608598052 269.9986876068837 1.684944635871196 266.5062004915302 2.0084288569816007 266.6965181635169 5.487312459045988",
+            "obs_collection": "spherex_dr1",
+            "obs_intent": "science",
+            "algorithm_name": "exposure",
+            "facility_keywords": "",
+            "instrument_keywords": "",
+            "environment_photometric": "",
+            "proposal_id": "",
+            "proposal_pi": "",
+            "proposal_project": "SPHEREx",
+            "target_name": "SPS_085271_S12",
+            "target_type": "field",
+            "target_standard": "0",
+            "target_moving": "0",
+            "target_keywords": "",
+            "obs_release_date": "2026-10-04 05:45:39",
+            "s_xel1": "2040",
+            "s_xel2": "2040",
+            "s_pixel_scale": "6.150",
+            "position_timedependent": "0",
+            "t_min": "60902.864715",
+            "t_max": "60902.866047",
+            "t_resolution": "",
+            "t_xel": "",
+            "obs_publisher_did": "ivo://irsa.ipac/spherex_dr1?2025W33_2C_0321_1/D3",
+            "s_fov": "3.485e+00",
+            "em_xel": "",
+            "pol_states": "",
+            "pol_xel": "",
+            "cloud_access": "{\"aws\": {\"bucket_name\": \"nasa-irsa-spherex\"",
+            "o_ucd": " \"key\":\"dr1/level2/2025W33_2C/l2b-v27-2026-228/3/level2_2025W33_2C_0321_1D3_spx_l2b-v27-2026-228.fits\"",
+            "upload_row_id": " \"region\": \"us-east-1\"}}",
+            "_extra_values": [
+              "",
+              "1"
+            ]
+          }
+        },
+        "product_url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W33_2C/l2b-v27-2026-228/3/level2_2025W33_2C_0321_1D3_spx_l2b-v27-2026-228.fits",
+        "variance_available": true
+      },
+      "inspection": {
+        "status": "available",
+        "width": 29,
+        "height": 29,
+        "finite_image_pixels": 837,
+        "flagged_pixels": 841,
+        "positive_variance_pixels": 837,
+        "spectral_wcs_present": true
+      },
+      "preview": "/observations/barnard/saved-native-1.png",
+      "input_sha256": "1bfa8691f08af9aa45d013159e415a8e40f85c9679cf243745736b1f80f4a0d5",
+      "preview_sha256": "8e3b3102caa0a75beaac4ad8b421b736dfde7eaf29ae367fc5eaab2279a31d7b"
+    },
+    {
+      "observation": {
+        "id": "ivo://irsa.ipac/spherex_dr1?2026W19_1A_0216_1/D3",
+        "observed_at": "2026-05-04T14:34:15.168000Z",
+        "observed_end": "2026-05-04T14:36:10.252800Z",
+        "release": "DR1",
+        "channel": "SPHEREx-D3",
+        "wavelength_um": 2.03235,
+        "wavelength_min_um": 1.6301,
+        "wavelength_max_um": 2.4346,
+        "provenance": {
+          "source": "IRSA SIA2",
+          "collection": "spherex_dr1",
+          "query_url": "https://irsa.ipac.caltech.edu/SIA",
+          "query_parameters": {
+            "COLLECTION": "spherex_dr1",
+            "RESPONSEFORMAT": "CSV",
+            "MAXREC": "500",
+            "POS": "CIRCLE 269.446280 4.768000 0.01"
+          },
+          "time_bounds_mjd": {
+            "t_min": 61164.60712,
+            "t_max": 61164.608452
+          },
+          "time_semantics": "observed_at is the SIA t_min lower bound; original bounds are retained",
+          "wavelength_bounds_um": {
+            "em_min": 1.6301,
+            "em_max": 2.4346
+          },
+          "wavelength_semantics": "wavelength_um is the midpoint of the SIA wavelength bounds",
+          "archive_fields": {
+            "s_ra": "268.46975903498247",
+            "s_dec": "5.4672213076100027",
+            "facility_name": "SPHEREx",
+            "instrument_name": "SPHEREx",
+            "dataproduct_subtype": "science",
+            "calib_level": "2",
+            "dataproduct_type": "image",
+            "energy_bandpassname": "SPHEREx-D3",
+            "energy_emband": "Infrared",
+            "obs_id": "2026W19_1A_0216_1",
+            "s_resolution": "3.075000",
+            "em_min": "1.63010e-06",
+            "em_max": "2.43460e-06",
+            "em_res_power": "40.600000",
+            "proposal_title": "SPHEREx LVF Survey Data",
+            "access_url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2026W19_1A/l2b-v27-2026-245/3/level2_2026W19_1A_0216_1D3_spx_l2b-v27-2026-245.fits",
+            "access_format": "image/fits",
+            "access_estsize": "62744",
+            "t_exptime": "113.582600",
+            "s_region": "POLYGON ICRS 270.24248107159417 3.7059202819341093 266.75938515583164 3.7673931768996396 266.6600893558892 7.257065589759789 270.19352451291735 7.190154870426931 270.24248107159417 3.7059202819341093",
+            "obs_collection": "spherex_dr1",
+            "obs_intent": "science",
+            "algorithm_name": "exposure",
+            "facility_keywords": "",
+            "instrument_keywords": "",
+            "environment_photometric": "",
+            "proposal_id": "",
+            "proposal_pi": "",
+            "proposal_project": "SPHEREx",
+            "target_name": "SPS_015665_S12",
+            "target_type": "field",
+            "target_standard": "0",
+            "target_moving": "0",
+            "target_keywords": "",
+            "obs_release_date": "2026-10-09 18:07:05",
+            "s_xel1": "2040",
+            "s_xel2": "2040",
+            "s_pixel_scale": "6.150",
+            "position_timedependent": "0",
+            "t_min": "61164.607120",
+            "t_max": "61164.608452",
+            "t_resolution": "",
+            "t_xel": "",
+            "obs_publisher_did": "ivo://irsa.ipac/spherex_dr1?2026W19_1A_0216_1/D3",
+            "s_fov": "3.485e+00",
+            "em_xel": "",
+            "pol_states": "",
+            "pol_xel": "",
+            "cloud_access": "{\"aws\": {\"bucket_name\": \"nasa-irsa-spherex\"",
+            "o_ucd": " \"key\":\"dr1/level2/2026W19_1A/l2b-v27-2026-245/3/level2_2026W19_1A_0216_1D3_spx_l2b-v27-2026-245.fits\"",
+            "upload_row_id": " \"region\": \"us-east-1\"}}",
+            "_extra_values": [
+              "",
+              "1"
+            ]
+          }
+        },
+        "product_url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2026W19_1A/l2b-v27-2026-245/3/level2_2026W19_1A_0216_1D3_spx_l2b-v27-2026-245.fits"
+      },
+      "inspection": {
+        "status": "available",
+        "width": 29,
+        "height": 29,
+        "finite_image_pixels": 838,
+        "flagged_pixels": 841,
+        "positive_variance_pixels": 838,
+        "spectral_wcs_present": true
+      },
+      "preview": "/observations/barnard/saved-native-2.png",
+      "input_sha256": "dbf9d49cd5f439f2cdeef150b77e631e4ca0e9a8ae9ee4d64c3f6f8369707a61",
+      "preview_sha256": "59e71827e6e01f77f669ebb45b7e7fd5607f37e5733c2ccf3baf8a3c6d215ac8"
+    }
+  ]
+}
