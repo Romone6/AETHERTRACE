@@ -6,7 +6,7 @@ A local FastAPI service and Next.js App Router interface are implemented and int
 
 The UI uses a fixed ICRS coordinate. Barnard's Star proper motion has not been applied, so the displayed cutouts are not verified as centered on the star at every epoch. Do not describe them as a verified stellar light curve or discovery.
 
-No host, credentials, public domain, cloud account, or paid service has been selected or activated. GitHub CLI credentials are expired, and no remote repository exists.
+The [source repository](https://github.com/Romone6/AETHERTRACE) is public. The application runs locally.
 
 ## Run locally
 

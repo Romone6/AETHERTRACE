@@ -2,6 +2,13 @@
 
 Python 3.10+: `python -m venv .venv && . .venv/bin/activate && pip install -r services/api/requirements.txt && uvicorn services.api.app:app --reload`. Run route tests after `pip install -r services/api/requirements-dev.txt` with `pytest services/api`.
 
+If `/api/observations` returns `IRSA SIA request failed` and Python reports `CERTIFICATE_VERIFY_FAILED` when opening `https://irsa.ipac.caltech.edu/SIA`, start the API with a current CA bundle from the activated environment.
+
+```sh
+python -m pip install certifi
+SSL_CERT_FILE="$(python -m certifi)" uvicorn services.api.app:app --reload
+```
+
 - `GET /api/health`
 - `GET /api/targets` returns the Barnard's Star query center and its source caveat.
 - `GET /api/observations?target=barnards-star` POSTs the coordinator-verified SIA form query for `spherex_dr1` and returns rows conforming to the shared `Observation` schema. Original SIA fields, IDs, product URLs, time bounds, wavelength bounds, and available quality fields remain in `provenance`.

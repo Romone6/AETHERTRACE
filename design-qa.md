@@ -1,4 +1,17 @@
-# Design QA — Option 1
+# Design QA
+
+## Multipage branch review
+
+Playwright verified the production build of `feat/multipage-aethertrace` at `427e2c3` on 2026-11-14. All five pages rendered at 390 × 844 without page-wide horizontal overflow. The home page and observation deck were captured at 1488 × 1054 and 390 × 844 with live SPHEREx imagery.
+
+- The archive returned 240 records across six detector channels, with 42 frames in D3. The first two D3 cutouts rendered. Keyboard scrubbing, playback, and switching to D4 worked.
+- The evidence review returned `INSUFFICIENT_DATA` for a compatible D3 pair and displayed the API limitations.
+- Archive pagination, detector filtering, product ID search, and provenance disclosure worked.
+- The production build, all 11 Python tests, and OpenAPI lint passed.
+
+The original concept image is referenced by a path on the previous machine. A side-by-side comparison still needs that image. The older review below records the original layout before the branch split it into separate pages.
+
+## Original Option 1 review
 
 **Findings**
 

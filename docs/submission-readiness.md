@@ -21,7 +21,7 @@ The official challenge statement calls for a **public-facing web tool** that dis
 - [x] Build a runnable local demonstration and test it. API tests: 11 passed; OpenAPI lint and Next.js production build pass; the local browser loaded 240 records and a 42-frame D3 sequence.
 - [ ] Write the final project page around features that actually work; distinguish prototype, planned work, and limitations.
 - [ ] Cite NASA/partner data, software, libraries, media, and other sources used; include license documentation for solution materials as required by the participant terms.
-- [ ] Add public project-code and demo links only after they exist and are accessible. No remote repository or public deployment is configured; GitHub CLI authentication is expired.
+- [ ] Add the [public source repository](https://github.com/Romone6/AETHERTRACE) and the public demo link to the project page. The demo currently runs locally.
 - [ ] Submit through the team's Project tab by the official local-time deadline. Do not treat this document or a Git commit as an event submission.
 
 ## Judging and submission details still to confirm
