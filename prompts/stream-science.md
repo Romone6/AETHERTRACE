@@ -1,0 +1,3 @@
+# Science stream — `feat/scientific-data`
+
+Work only in the science worktree, primarily `services/api/`. Verify public IRSA SIA/TAP access with real queries, establish target and release suitability, and implement the smallest reproducible API path for archive metadata and cutouts. Do not invent metadata/results or mix incompatible wavelengths/releases. Keep source URLs/IDs, timestamps, flags, variance and limitations. Follow `../aethertrace/AGENTS.md` and `packages/contracts/openapi.yaml`. Commit coherent changes and report changed files, exact live-query evidence, tests, and blockers. Do not edit shared contracts without coordinator agreement.

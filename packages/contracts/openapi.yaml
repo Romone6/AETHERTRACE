@@ -1,0 +1,180 @@
+openapi: 3.1.0
+info:
+  title: AETHERTRACE API
+  version: 0.1.0
+  description: Contract for evidence-aware SPHEREx exploration. Product claims require archive provenance.
+servers:
+  - url: /api
+security: []
+paths:
+  /health:
+    get:
+      summary: Check service health
+      operationId: health
+      responses:
+        '200':
+          description: Service status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: {type: string, const: ok}
+  /targets:
+    get:
+      summary: List supported astronomical targets
+      operationId: listTargets
+      responses:
+        '200':
+          description: Targets with known coordinates
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Target'}
+  /observations:
+    get:
+      summary: List archive observations for a target
+      operationId: listObservations
+      parameters:
+        - {name: target, in: query, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Archive observations for target
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Observation'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '502': {$ref: '#/components/responses/ArchiveUnavailable'}
+  /compare:
+    get:
+      summary: Compare two observations when scientifically compatible
+      operationId: compareObservations
+      parameters:
+        - {name: target, in: query, required: true, schema: {type: string}}
+        - {name: epoch_a, in: query, required: true, schema: {type: string}}
+        - {name: epoch_b, in: query, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Evidence-bearing comparison
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Comparison'}
+        '422': {description: Invalid or scientifically incompatible request}
+        '502': {description: Archive unavailable}
+  /candidates:
+    get:
+      summary: List conservative change candidates
+      operationId: listCandidates
+      parameters:
+        - {name: target, in: query, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Conservative candidate assessments
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Candidate'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '502': {$ref: '#/components/responses/ArchiveUnavailable'}
+  /preview:
+    get:
+      summary: Render a display-only PNG preview of an archive cutout
+      operationId: previewCutout
+      parameters:
+        - {name: target, in: query, required: true, schema: {type: string}}
+        - {name: observation_id, in: query, required: true, schema: {type: string}}
+        - {name: size, in: query, required: false, schema: {type: number, exclusiveMinimum: 0, maximum: 0.1, default: 0.05}}
+      responses:
+        '200':
+          description: Percentile/asinh display stretch; not a calibrated measurement
+          content:
+            image/png:
+              schema: {type: string, format: binary}
+        '404': {description: Observation not found}
+        '502': {$ref: '#/components/responses/ArchiveUnavailable'}
+  /archive/cutout:
+    get:
+      summary: Retrieve the source FITS cutout for an observation
+      operationId: getFitsCutout
+      parameters:
+        - {name: target, in: query, required: true, schema: {type: string}}
+        - {name: observation_id, in: query, required: true, schema: {type: string}}
+        - {name: size, in: query, required: false, schema: {type: number, exclusiveMinimum: 0, maximum: 0.1, default: 0.05}}
+      responses:
+        '200':
+          description: IRSA multi-extension FITS product
+          content:
+            application/fits:
+              schema: {type: string, format: binary}
+        '404': {description: Observation not found}
+        '502': {$ref: '#/components/responses/ArchiveUnavailable'}
+components:
+  responses:
+    InvalidRequest:
+      description: Invalid input or incompatible observations
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    ArchiveUnavailable:
+      description: Upstream archive unavailable
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+  schemas:
+    Target:
+      type: object
+      required: [id, name, ra_deg, dec_deg]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        ra_deg: {type: number}
+        dec_deg: {type: number}
+        source: {type: string}
+        coordinate_reference_epoch: {type: number, description: 'Coordinate epoch in Julian years when known'}
+        proper_motion_ra_mas_yr: {type: number, description: 'Proper motion in RA*cos(Dec), when known'}
+        proper_motion_dec_mas_yr: {type: number, description: 'Proper motion in Dec, when known'}
+    Observation:
+      type: object
+      required: [id, observed_at, observed_end, release, channel, wavelength_min_um, wavelength_max_um, provenance]
+      properties:
+        id: {type: string}
+        observed_at: {type: string, format: date-time, description: Observation start time in UTC}
+        observed_end: {type: string, format: date-time, description: Observation end time in UTC}
+        release: {type: string}
+        channel: {type: string, description: SPHEREx energy_bandpassname detector/channel label}
+        wavelength_um: {type: [number, 'null'], description: Representative center for display only; not a constant wavelength across a spectral image}
+        wavelength_min_um: {type: number, description: Minimum spectral-image wavelength in micrometres}
+        wavelength_max_um: {type: number, description: Maximum spectral-image wavelength in micrometres}
+        spectral_wcs_available: {type: boolean}
+        pixel_scale_arcsec: {type: number}
+        flux_unit: {type: string}
+        product_url: {type: string, format: uri}
+        provenance: {type: object, additionalProperties: true}
+        quality_flags: {type: array, items: {type: string}}
+        variance_available: {type: boolean}
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: {type: string}
+        detail: {type: string}
+    Comparison:
+      type: object
+      required: [target, observation_a, observation_b, status, limitations]
+      properties:
+        target: {type: string}
+        observation_a: {$ref: '#/components/schemas/Observation'}
+        observation_b: {$ref: '#/components/schemas/Observation'}
+        status: {type: string, enum: [NO_SIGNIFICANT_CHANGE, CANDIDATE_CHANGE, INCONCLUSIVE, INSUFFICIENT_DATA, PROCESSING_ERROR]}
+        difference_url: {type: string, format: uri}
+        statistics: {type: object, additionalProperties: true}
+        uncertainty: {type: object, additionalProperties: true}
+        limitations: {type: array, items: {type: string}}
+    Candidate:
+      allOf:
+        - {$ref: '#/components/schemas/Comparison'}

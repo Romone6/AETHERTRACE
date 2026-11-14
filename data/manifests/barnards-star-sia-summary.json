@@ -1,0 +1,46 @@
+{
+  "queried_at_utc": "2026-11-14",
+  "service": "https://irsa.ipac.caltech.edu/SIA",
+  "release": "spherex_dr1",
+  "query": {
+    "COLLECTION": "spherex_dr1",
+    "POS": "CIRCLE 269.446280 4.768000 0.01",
+    "RESPONSEFORMAT": "CSV",
+    "MAXREC": 500
+  },
+  "result": {
+    "http_status": 200,
+    "level2_science_rows": 240,
+    "unique_t_min_epochs": 122,
+    "utc_observing_days": 26,
+    "mjd_start": 60902.864715,
+    "mjd_end": 61165.082972,
+    "detector_row_counts": {"D1": 42, "D2": 37, "D3": 42, "D4": 41, "D5": 37, "D6": 41},
+    "d3_wavelength_m": [1.63010e-6, 2.43460e-6]
+  },
+  "representative_d3_products": [
+    {
+      "obs_id": "2025W33_2C_0321_1",
+      "mjd_start": 60902.864715,
+      "mjd_end": 60902.866047,
+      "url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W33_2C/l2b-v27-2026-228/3/level2_2025W33_2C_0321_1D3_spx_l2b-v27-2026-228.fits"
+    },
+    {
+      "obs_id": "2026W19_1A_0403_1",
+      "mjd_start": 61165.082972,
+      "mjd_end": 61165.084304,
+      "url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2026W19_1A/l2b-v27-2026-245/3/level2_2026W19_1A_0403_1D3_spx_l2b-v27-2026-245.fits"
+    }
+  ],
+  "cutout_validation": {
+    "method": "append ?center=269.446280,4.768000&size=0.05 to each product URL",
+    "http_status": 200,
+    "download_bytes_per_cutout": 4049280,
+    "astropy_hdu_names": ["PRIMARY", "IMAGE", "FLAGS", "VARIANCE", "ZODI", "EPSF", "WCS-WAVE"],
+    "image_shape": [29, 29],
+    "variance_shape": [29, 29],
+    "finite_image_pixels": 837,
+    "finite_variance_pixels": 837
+  },
+  "interpretation": "Authentic public image coverage and FITS extraction verified; no variability or detection claim. Epoch-propagated astrometry, registration, calibration and uncertainty analysis remain required."
+}

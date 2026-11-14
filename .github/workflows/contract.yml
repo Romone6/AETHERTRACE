@@ -1,0 +1,20 @@
+name: OpenAPI contract
+
+on:
+  push:
+    branches: [main, feat/infrastructure]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npx --yes @redocly/cli@2.78.0 lint packages/contracts/openapi.yaml --extends minimal
