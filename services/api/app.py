@@ -6,14 +6,17 @@ import math
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import OrderedDict
 from enum import Enum
+from threading import Lock
+from time import monotonic, sleep
 from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Query, Response
 from pydantic import BaseModel
 
-from services.api.science import COLLECTION, comparison, compatible_epochs, observation_from_row
+from services.api.science import COLLECTION, comparison, compatible_epochs, inspect_fits_cutout, observation_from_row
 
 IRSA_SIA = "https://irsa.ipac.caltech.edu/SIA"
 TARGET = {
@@ -30,6 +33,11 @@ SIA_PARAMETERS = {
     "MAXREC": "500",
 }
 MAX_CUTOUT_BYTES = 20 * 1024 * 1024
+DEFAULT_CUTOUT_SIZE = 0.05
+CUTOUT_CACHE_ENTRIES = 4
+CUTOUT_CACHE_TTL_SECONDS = 120
+_cutout_cache: OrderedDict[str, tuple[float, bytes]] = OrderedDict()
+_cutout_cache_lock = Lock()
 
 
 class TargetModel(BaseModel):
@@ -159,8 +167,13 @@ def list_observations(target: str = Query(...)):
 
 
 @app.get("/api/compare", response_model=ComparisonModel, response_model_exclude_none=True)
-def compare_observations(target: str = Query(...), epoch_a: str = Query(...), epoch_b: str = Query(...)):
-    _target(target)
+def compare_observations(
+    target: str = Query(...),
+    epoch_a: str = Query(...),
+    epoch_b: str = Query(...),
+    inspect_cutouts: bool = False,
+):
+    target_info = _target(target)
     if epoch_a == epoch_b:
         raise HTTPException(422, "epoch_a and epoch_b must identify different observations")
     observations = _observations()
@@ -171,7 +184,15 @@ def compare_observations(target: str = Query(...), epoch_a: str = Query(...), ep
         raise HTTPException(422, "epoch_a and epoch_b must match returned observation IDs") from error
     if not compatible_epochs(observation_a, observation_b):
         raise HTTPException(422, "observations have incompatible releases or wavelength intervals")
-    return comparison(target, observation_a, observation_b)
+    result = comparison(target, observation_a, observation_b)
+    if inspect_cutouts:
+        result["statistics"] = {
+            "fits_inspection": {
+                "observation_a": _cutout_inspection(observation_a, target_info),
+                "observation_b": _cutout_inspection(observation_b, target_info),
+            },
+        }
+    return result
 
 
 @app.get("/api/candidates", response_model=list[CandidateModel])
@@ -185,7 +206,7 @@ def list_candidates(target: str = Query(...)):
 def get_cutout(
     target: str = Query(...),
     observation_id: str = Query(...),
-    size: float = Query(0.05, gt=0, le=0.1),
+    size: float = Query(DEFAULT_CUTOUT_SIZE, gt=0, le=0.1),
 ):
     target_info = _target(target)
     size = _number(size, "size", 0.1)
@@ -196,7 +217,17 @@ def get_cutout(
     )), None)
     if row is None:
         raise HTTPException(404, "observation not found in the DR1 SIA result")
-    source_url = row.get("access_url", "")
+    source_url = row.get("access_url") or ""
+    payload = _download_cutout(source_url, target_info, size)
+    return Response(payload, media_type="application/fits", headers={
+        "Content-Disposition": 'attachment; filename="spherex-cutout.fits"',
+        "X-Source-URL": source_url,
+        "X-Cutout-Center-ICRS": f"{target_info['ra_deg']:.6f},{target_info['dec_deg']:.6f}",
+        "X-Cutout-Size-Deg": f"{size:g}",
+    })
+
+
+def _download_cutout(source_url: str, target_info: dict[str, Any], size: float) -> bytes:
     parsed = urlsplit(source_url)
     if (parsed.scheme != "https" or parsed.hostname != "irsa.ipac.caltech.edu"
             or parsed.port not in (None, 443) or not parsed.path.startswith("/ibe/data/spherex/")):
@@ -204,20 +235,46 @@ def get_cutout(
     cutout_url = source_url + ("&" if parsed.query else "?") + urllib.parse.urlencode({
         "center": f"{target_info['ra_deg']:.6f},{target_info['dec_deg']:.6f}", "size": f"{size:g}",
     })
+    if size == DEFAULT_CUTOUT_SIZE:
+        with _cutout_cache_lock:
+            entry = _cutout_cache.pop(cutout_url, None)
+            if entry is not None and entry[0] > monotonic():
+                _cutout_cache[cutout_url] = entry
+                return entry[1]
     try:
-        payload, _ = _fetch(cutout_url)
+        try:
+            payload, _ = _fetch(cutout_url)
+        except urllib.error.HTTPError as error:
+            if error.code != 503:
+                raise
+            retry_after = (error.headers or {}).get("Retry-After", "1")
+            # Do not make the caller wait for a long outage or ignore a longer server hint.
+            if not retry_after.isascii() or not retry_after.isdecimal() or len(retry_after) > 2 or int(retry_after) > 5:
+                raise
+            error.close()
+            sleep(int(retry_after))
+            payload, _ = _fetch(cutout_url)
     except (urllib.error.URLError, TimeoutError, OSError) as error:
         raise HTTPException(502, "IRSA cutout request failed") from error
     if len(payload) > MAX_CUTOUT_BYTES:
         raise HTTPException(502, "IRSA cutout exceeded the 20 MiB limit")
     if not payload.startswith(b"SIMPLE  ="):
         raise HTTPException(502, "IRSA response is not an uncompressed FITS file")
-    return Response(payload, media_type="application/fits", headers={
-        "Content-Disposition": 'attachment; filename="spherex-cutout.fits"',
-        "X-Source-URL": source_url,
-        "X-Cutout-Center-ICRS": f"{target_info['ra_deg']:.6f},{target_info['dec_deg']:.6f}",
-        "X-Cutout-Size-Deg": f"{size:g}",
-    })
+    if size == DEFAULT_CUTOUT_SIZE:
+        with _cutout_cache_lock:
+            _cutout_cache[cutout_url] = (monotonic() + CUTOUT_CACHE_TTL_SECONDS, payload)
+            _cutout_cache.move_to_end(cutout_url)
+            if len(_cutout_cache) > CUTOUT_CACHE_ENTRIES:
+                _cutout_cache.popitem(last=False)
+    return payload
+
+
+def _cutout_inspection(observation: dict[str, Any], target_info: dict[str, Any]) -> dict[str, Any]:
+    try:
+        payload = _download_cutout(observation.get("product_url", ""), target_info, size=DEFAULT_CUTOUT_SIZE)
+    except HTTPException:
+        return {"status": "unavailable"}
+    return inspect_fits_cutout(payload)
 
 
 @app.get("/api/preview")

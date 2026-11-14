@@ -2,6 +2,7 @@
 
 import math
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 from urllib.parse import urlsplit
 
 COLLECTION = "spherex_dr1"
@@ -105,3 +106,45 @@ def compatible_epochs(observation_a, observation_b):
         and observation_a.get("channel") == observation_b.get("channel")
         and observation_a["provenance"]["wavelength_bounds_um"] == observation_b["provenance"]["wavelength_bounds_um"]
     )
+
+
+def _real_image_plane(hdus, name):
+    try:
+        plane = hdus[name].data
+    except (KeyError, OSError, ValueError, TypeError, OverflowError):
+        return None
+    if plane is None or plane.ndim != 2 or not plane.size or plane.dtype.kind not in "iuf":
+        return None
+    return plane
+
+
+def inspect_fits_cutout(payload):
+    """Summarize the cutout planes independently before science processing."""
+    import numpy as np
+    from astropy.io import fits
+
+    try:
+        with fits.open(BytesIO(payload), memmap=False) as hdus:
+            image = _real_image_plane(hdus, "IMAGE")
+            if image is None:
+                return {"status": "unavailable"}
+
+            flags = _real_image_plane(hdus, "FLAGS")
+            variance = _real_image_plane(hdus, "VARIANCE")
+            return {
+                "status": "available",
+                "width": image.shape[1],
+                "height": image.shape[0],
+                "finite_image_pixels": int(np.count_nonzero(np.isfinite(image))),
+                "flagged_pixels": (
+                    int(np.count_nonzero(np.isfinite(flags) & (flags != 0)))
+                    if flags is not None and flags.shape == image.shape else None
+                ),
+                "positive_variance_pixels": (
+                    int(np.count_nonzero(np.isfinite(variance) & (variance > 0)))
+                    if variance is not None and variance.shape == image.shape else None
+                ),
+                "spectral_wcs_present": "WCS-WAVE" in hdus,
+            }
+    except (OSError, ValueError, TypeError, OverflowError):
+        return {"status": "unavailable"}

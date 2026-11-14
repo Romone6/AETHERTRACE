@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 type Target = {
   id: string;
@@ -17,7 +17,7 @@ type Observation = {
   observed_end: string;
   release: string;
   channel: string;
-  wavelength_um: number | null;
+  wavelength_um?: number | null;
   wavelength_min_um: number;
   wavelength_max_um: number;
   product_url?: string;
@@ -32,8 +32,19 @@ type Comparison = {
   observation_b: Observation;
   status: string;
   difference_url?: string;
+  statistics?: unknown;
   uncertainty?: Record<string, unknown>;
   limitations: string[];
+};
+
+type FitsInspection = {
+  status: "available";
+  width: number;
+  height: number;
+  finite_image_pixels: number;
+  flagged_pixels: number | null;
+  positive_variance_pixels: number | null;
+  spectral_wcs_present: boolean;
 };
 
 type View = "home" | "explorer" | "evidence" | "archive" | "method";
@@ -54,7 +65,7 @@ function isObservation(value: unknown): value is Observation {
   return isRecord(value) && typeof value.id === "string" &&
     typeof value.observed_at === "string" && typeof value.observed_end === "string" &&
     typeof value.release === "string" && typeof value.channel === "string" &&
-    (typeof value.wavelength_um === "number" || value.wavelength_um === null) &&
+    (typeof value.wavelength_um === "number" || value.wavelength_um == null) &&
     typeof value.wavelength_min_um === "number" && typeof value.wavelength_max_um === "number" &&
     isRecord(value.provenance);
 }
@@ -111,6 +122,97 @@ function EmptyState({ title, detail }: { title: string; detail: string }) {
   return <div className="empty-state"><span className="empty-glyph" aria-hidden="true">✳</span><strong>{title}</strong><span>{detail}</span></div>;
 }
 
+function isPixelCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isFitsInspection(value: unknown): value is FitsInspection {
+  if (!isRecord(value) || value.status !== "available" ||
+    !isPixelCount(value.width) || value.width === 0 || !isPixelCount(value.height) || value.height === 0) {
+    return false;
+  }
+  const total = value.width * value.height;
+  return isPixelCount(value.finite_image_pixels) && value.finite_image_pixels <= total &&
+    (value.flagged_pixels === null || (isPixelCount(value.flagged_pixels) && value.flagged_pixels <= total)) &&
+    (value.positive_variance_pixels === null || (isPixelCount(value.positive_variance_pixels) && value.positive_variance_pixels <= total)) &&
+    typeof value.spectral_wcs_present === "boolean";
+}
+
+function ComparisonCutout({ observation, targetId, label, inspection }: {
+  observation: Observation;
+  targetId: string;
+  label: string;
+  inspection: unknown;
+}) {
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const params = new URLSearchParams({ target: targetId, observation_id: observation.id, size: "0.05" });
+  const sourceUrl = safeUrl(observation.product_url);
+  const hasInspection = isFitsInspection(inspection);
+
+  return (
+    <figure className="comparison-cutout">
+      <figcaption>
+        <span className="micro-label">{label}</span>
+        <time dateTime={observation.observed_at}>{formatDate(observation.observed_at)}</time>
+        <span>{observation.release} · {observation.channel} · {observation.wavelength_min_um.toFixed(3)}–{observation.wavelength_max_um.toFixed(3)} μm</span>
+        <code>{observation.id}</code>
+      </figcaption>
+      <div className="comparison-image">
+        {previewFailed ? (
+          <EmptyState title="Preview unavailable" detail="The source record remains available below." />
+        ) : (
+          <img src={`/api/preview?${params}`} alt={`Display-only SPHEREx cutout from ${formatDate(observation.observed_at)}`} onError={() => setPreviewFailed(true)} />
+        )}
+      </div>
+      {hasInspection ? (
+        <dl className="cutout-diagnostics">
+          <div><dt>FITS image size</dt><dd>{inspection.width} × {inspection.height} pixels</dd></div>
+          <div><dt>Finite image pixels</dt><dd>{inspection.finite_image_pixels}</dd></div>
+          <div><dt>Pixels with finite nonzero flags</dt><dd>{inspection.flagged_pixels ?? "Unavailable"}</dd></div>
+          <div><dt>Pixels with finite positive variance</dt><dd>{inspection.positive_variance_pixels ?? "Unavailable"}</dd></div>
+          <div><dt>Spectral WCS extension</dt><dd>{inspection.spectral_wcs_present ? "Present" : "Absent"}</dd></div>
+        </dl>
+      ) : (
+        <p className="cutout-inspection-status">{isRecord(inspection) && inspection.status === "unavailable" ? "FITS inspection unavailable." : "FITS inspection not reported by the API."}</p>
+      )}
+      <div className="cutout-links">
+        <a href={`/api/archive/cutout?${params}`}>Download FITS cutout</a>
+        {sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer">Open source product <span aria-hidden="true">↗</span></a>}
+      </div>
+    </figure>
+  );
+}
+
+function ComparisonResult({ comparison }: { comparison: Comparison }) {
+  const fits = isRecord(comparison.statistics) && comparison.statistics.fits_inspection;
+  return (
+    <section className="card comparison-result" aria-labelledby="comparison-status">
+      <div className="card-heading">
+        <div>
+          <span className="micro-label">API ASSESSMENT</span>
+          <h2 id="comparison-status">{comparison.status.replaceAll("_", " ")}</h2>
+        </div>
+        <span className="status-pill">{comparison.status === "INSUFFICIENT_DATA" ? "NO CHANGE CLAIM" : "REVIEW REQUIRED"}</span>
+      </div>
+      <p className="comparison-caveat">
+        These 0.05° cutouts use a fixed sky coordinate. Each preview has its own display stretch. Registration and proper-motion correction remain pending.
+      </p>
+      <div className="comparison-cutouts">
+        <ComparisonCutout key={`a:${comparison.observation_a.id}`} observation={comparison.observation_a} targetId={comparison.target} label="Observation A" inspection={isRecord(fits) ? fits.observation_a : undefined} />
+        <ComparisonCutout key={`b:${comparison.observation_b.id}`} observation={comparison.observation_b} targetId={comparison.target} label="Observation B" inspection={isRecord(fits) ? fits.observation_b : undefined} />
+      </div>
+      <p className="comparison-caveat">
+        Counts describe each FITS plane separately. Flag bits include processing and status information and need interpretation before masking pixels. Comparing flux requires a shared mask, aligned images, and propagated uncertainty.
+      </p>
+      <div className="limitations">
+        <h3>Limitations returned by the API</h3>
+        {comparison.limitations.length ? <ul>{comparison.limitations.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>No limitations were listed in this response.</p>}
+      </div>
+      <p className="no-measurement">{comparison.uncertainty ? `Uncertainty: ${JSON.stringify(comparison.uncertainty)}` : "No calibrated difference measurement or uncertainty is available for this pair."}</p>
+    </section>
+  );
+}
+
 const pageCopy: Record<Exclude<View, "home">, { eyebrow: string; title: string; intro: string }> = {
   explorer: { eyebrow: "AETHERTRACE / EXPLORER", title: "Observation deck", intro: "Move through the SPHEREx archive one exposure at a time." },
   evidence: { eyebrow: "AETHERTRACE / EVIDENCE", title: "Review the evidence", intro: "Compare compatible archive observations and see what the data can—and cannot—support." },
@@ -137,6 +239,7 @@ export default function Explorer({ view }: { view: View }) {
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [comparisonMessage, setComparisonMessage] = useState("");
   const [loadingComparison, setLoadingComparison] = useState(false);
+  const comparisonRequest = useRef<AbortController | null>(null);
   const channels = Array.from(new Set(observations.map((item) => item.channel))).sort();
   const channelObservations = observations.filter((item) => item.channel === channel);
   const frame = channelObservations[frameIndex];
@@ -190,7 +293,7 @@ export default function Explorer({ view }: { view: View }) {
     if (!selected) return;
     setTarget(selected);
     setObservations([]);
-    setComparison(null);
+    clearComparison();
     setEpochA("");
     setEpochB("");
     setFrameIndex(0);
@@ -206,30 +309,48 @@ export default function Explorer({ view }: { view: View }) {
 
   useEffect(() => setPreviewFailed(false), [frame?.id]);
 
+  useEffect(() => () => comparisonRequest.current?.abort(), []);
+
+  function clearComparison() {
+    comparisonRequest.current?.abort();
+    comparisonRequest.current = null;
+    setComparison(null);
+    setComparisonMessage("");
+    setLoadingComparison(false);
+  }
+
   async function compare(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    clearComparison();
     if (!target || !epochA || !epochB || epochA === epochB) {
-      setComparison(null);
       setComparisonMessage("Choose two different observations before reviewing.");
       return;
     }
+    const request = new AbortController();
+    comparisonRequest.current = request;
     setLoadingComparison(true);
-    setComparison(null);
-    setComparisonMessage("Checking compatibility with the archive service…");
+    setComparisonMessage("Checking compatibility and inspecting the source cutouts…");
     try {
-      const params = new URLSearchParams({ target: target.id, epoch_a: epochA, epoch_b: epochB });
-      const response = await fetch(`/api/compare?${params}`, { headers: { Accept: "application/json" } });
+      const params = new URLSearchParams({ target: target.id, epoch_a: epochA, epoch_b: epochB, inspect_cutouts: "true" });
+      const response = await fetch(`/api/compare?${params}`, { headers: { Accept: "application/json" }, signal: request.signal });
       if (!response.ok) throw new Error(response.status === 422 ? "The selected products are scientifically incompatible." : `Comparison service returned ${response.status}.`);
       const data: unknown = await response.json();
-      if (!isRecord(data) || data.target !== target.id || !isObservation(data.observation_a) || !isObservation(data.observation_b) || typeof data.status !== "string" || !Array.isArray(data.limitations)) {
+      if (request.signal.aborted) return;
+      if (!isRecord(data) || data.target !== target.id ||
+        !isObservation(data.observation_a) || data.observation_a.id !== epochA ||
+        !isObservation(data.observation_b) || data.observation_b.id !== epochB ||
+        typeof data.status !== "string" || !Array.isArray(data.limitations) || !data.limitations.every((item) => typeof item === "string")) {
         throw new Error("Comparison response did not match the published API contract.");
       }
       setComparison(data as Comparison);
       setComparisonMessage("");
     } catch (error) {
-      setComparisonMessage(`${error instanceof Error ? error.message : "Comparison unavailable."} No change claim is shown.`);
+      if (!request.signal.aborted) setComparisonMessage(`${error instanceof Error ? error.message : "Comparison unavailable."} No change claim is shown.`);
     } finally {
-      setLoadingComparison(false);
+      if (comparisonRequest.current === request) {
+        comparisonRequest.current = null;
+        setLoadingComparison(false);
+      }
     }
   }
 
@@ -318,11 +439,28 @@ export default function Explorer({ view }: { view: View }) {
           {view === "evidence" && (
             <section className="evidence-layout">
               <div className="card evidence-card"><div className="card-heading"><div><span className="micro-label">PAIRWISE REVIEW</span><h2>Choose two observations</h2></div><span className="meta-number">02</span></div><p className="section-copy">The API checks release and wavelength compatibility before returning a comparison. Similar-looking image cutouts alone do not establish a change.</p>
-                <form className="compare-form" onSubmit={compare}><label>EARLIER OBSERVATION<select value={epochA} disabled={channelObservations.length < 2} onChange={(event) => setEpochA(event.target.value)}><option value="">Select an observation</option>{channelObservations.map((item) => <option key={item.id} value={item.id}>{formatDate(item.observed_at)} · {item.release}</option>)}</select></label><span className="compare-connector" aria-hidden="true">→</span><label>LATER OBSERVATION<select value={epochB} disabled={channelObservations.length < 2} onChange={(event) => setEpochB(event.target.value)}><option value="">Select an observation</option>{channelObservations.map((item) => <option key={item.id} value={item.id}>{formatDate(item.observed_at)} · {item.release}</option>)}</select></label><button className="button-primary" type="submit" disabled={channelObservations.length < 2 || loadingComparison}>{loadingComparison ? "Reviewing…" : "Review compatibility"}<span aria-hidden="true">↗</span></button></form>
+                <form className="compare-form" onSubmit={compare}>
+                  <label>OBSERVATION A
+                    <select value={epochA} disabled={channelObservations.length < 2} onChange={(event) => { setEpochA(event.target.value); clearComparison(); }}>
+                      <option value="">Select an observation</option>
+                      {channelObservations.map((item) => <option key={item.id} value={item.id}>{formatDate(item.observed_at)} · {item.release}</option>)}
+                    </select>
+                  </label>
+                  <span className="compare-connector" aria-hidden="true">+</span>
+                  <label>OBSERVATION B
+                    <select value={epochB} disabled={channelObservations.length < 2} onChange={(event) => { setEpochB(event.target.value); clearComparison(); }}>
+                      <option value="">Select an observation</option>
+                      {channelObservations.map((item) => <option key={item.id} value={item.id}>{formatDate(item.observed_at)} · {item.release}</option>)}
+                    </select>
+                  </label>
+                  <button className="button-primary" type="submit" disabled={channelObservations.length < 2 || loadingComparison}>
+                    {loadingComparison ? "Reviewing…" : "Review compatibility"}<span aria-hidden="true">↗</span>
+                  </button>
+                </form>
                 {comparisonMessage && <p className="inline-message" role="status">{comparisonMessage}</p>}
               </div>
               <aside className="evidence-aside"><div className="evidence-principle"><span className="eyebrow">AETHERTRACE PRINCIPLE</span><blockquote>“A change is a question, not a conclusion.”</blockquote><p>Evidence quality depends on calibration, registration, uncertainty, and comparable coverage.</p></div><div className="evidence-state"><span className="micro-label">CURRENT READINESS</span><strong>{observations.length ? `${channelObservations.length} ${channel} observations` : "Waiting for archive records"}</strong><p>Candidate generation waits for calibrated, registered measurements.</p><Link href="/method">Read the method <span aria-hidden="true">↗</span></Link></div></aside>
-              {comparison && <section className="card comparison-result"><div className="card-heading"><div><span className="micro-label">API ASSESSMENT</span><h2>{comparison.status.replaceAll("_", " ")}</h2></div><span className="status-pill">{comparison.status === "INSUFFICIENT_DATA" ? "NO CHANGE CLAIM" : "REVIEW REQUIRED"}</span></div><div className="comparison-pair"><div><span>EARLIER</span><strong>{formatDate(comparison.observation_a.observed_at)}</strong><code>{comparison.observation_a.id}</code></div><span aria-hidden="true">→</span><div><span>LATER</span><strong>{formatDate(comparison.observation_b.observed_at)}</strong><code>{comparison.observation_b.id}</code></div></div><div className="limitations"><h3>Limitations returned by the API</h3>{comparison.limitations.length ? <ul>{comparison.limitations.map((item) => <li key={item}>{item}</li>)}</ul> : <p>No limitations were listed in this response.</p>}</div><p className="no-measurement">{comparison.uncertainty ? `Uncertainty: ${JSON.stringify(comparison.uncertainty)}` : "No calibrated difference measurement or uncertainty is available for this pair."}</p></section>}
+              {comparison && <ComparisonResult comparison={comparison} />}
             </section>
           )}
 

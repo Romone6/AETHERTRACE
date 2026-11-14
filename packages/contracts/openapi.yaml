@@ -57,6 +57,10 @@ paths:
         - {name: target, in: query, required: true, schema: {type: string}}
         - {name: epoch_a, in: query, required: true, schema: {type: string}}
         - {name: epoch_b, in: query, required: true, schema: {type: string}}
+        - name: inspect_cutouts
+          in: query
+          description: Inspect both 0.05-degree FITS cutouts around the fixed query center after the archive compatibility check.
+          schema: {type: boolean, default: false}
       responses:
         '200':
           description: Evidence-bearing comparison
@@ -172,9 +176,41 @@ components:
         observation_b: {$ref: '#/components/schemas/Observation'}
         status: {type: string, enum: [NO_SIGNIFICANT_CHANGE, CANDIDATE_CHANGE, INCONCLUSIVE, INSUFFICIENT_DATA, PROCESSING_ERROR]}
         difference_url: {type: string, format: uri}
-        statistics: {type: object, additionalProperties: true}
+        statistics:
+          type: object
+          additionalProperties: true
+          properties:
+            fits_inspection:
+              type: object
+              description: Per-cutout diagnostics from the requested inspection. Each plane is counted independently.
+              required: [observation_a, observation_b]
+              properties:
+                observation_a: {$ref: '#/components/schemas/CutoutInspection'}
+                observation_b: {$ref: '#/components/schemas/CutoutInspection'}
         uncertainty: {type: object, additionalProperties: true}
         limitations: {type: array, items: {type: string}}
+    CutoutInspection:
+      oneOf:
+        - type: object
+          required: [status]
+          properties:
+            status: {const: unavailable, description: The cutout could not be retrieved or its IMAGE plane could not be inspected.}
+        - type: object
+          required: [status, width, height, finite_image_pixels, flagged_pixels, positive_variance_pixels, spectral_wcs_present]
+          properties:
+            status: {const: available}
+            width: {type: integer, minimum: 1, description: Width of the native FITS IMAGE plane in pixels.}
+            height: {type: integer, minimum: 1, description: Height of the native FITS IMAGE plane in pixels.}
+            finite_image_pixels: {type: integer, minimum: 0, description: Number of finite values in IMAGE.}
+            flagged_pixels:
+              type: [integer, 'null']
+              minimum: 0
+              description: Number of finite nonzero FLAGS values. Null means the plane is missing or unsuitable for counting.
+            positive_variance_pixels:
+              type: [integer, 'null']
+              minimum: 0
+              description: Number of finite positive VARIANCE values. Null means the plane is missing or unsuitable for counting.
+            spectral_wcs_present: {type: boolean, description: A WCS-WAVE extension is present. The spectral solution has yet to be validated.}
     Candidate:
       allOf:
         - {$ref: '#/components/schemas/Comparison'}

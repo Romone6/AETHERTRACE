@@ -46,3 +46,23 @@ def test_incompatible_comparison_has_a_contract_error_response():
 
     assert "422" in responses
     assert "502" in responses
+
+
+def test_fits_inspection_is_opt_in_and_describes_each_frame():
+    spec = yaml.safe_load(CONTRACT.read_text())
+    compare = spec["paths"]["/compare"]["get"]
+    opt_in = next(param for param in compare["parameters"] if param["name"] == "inspect_cutouts")
+    assert opt_in["schema"] == {"type": "boolean", "default": False}
+
+    schemas = spec["components"]["schemas"]
+    inspection = schemas["Comparison"]["properties"]["statistics"]["properties"]["fits_inspection"]
+    assert set(inspection["required"]) == {"observation_a", "observation_b"}
+    assert all(
+        item["$ref"] == "#/components/schemas/CutoutInspection"
+        for item in inspection["properties"].values()
+    )
+    unavailable, available = schemas["CutoutInspection"]["oneOf"]
+    assert unavailable["properties"]["status"]["const"] == "unavailable"
+    assert available["properties"]["status"]["const"] == "available"
+    assert available["properties"]["flagged_pixels"]["type"] == ["integer", "null"]
+    assert available["properties"]["positive_variance_pixels"]["type"] == ["integer", "null"]

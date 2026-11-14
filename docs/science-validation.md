@@ -1,9 +1,12 @@
 # Science validation protocol
 
 The current API deliberately reports `INSUFFICIENT_DATA` until image
-measurement and uncertainty propagation are implemented. These checks are the
-acceptance cases for any future comparison pipeline; they are not results about
-an astronomical target. Contract-level tests in
+measurement and uncertainty propagation are implemented. An opt-in FITS inspection
+reports native dimensions, finite image values, nonzero flag values, positive
+variance values, and the presence of the spectral WCS extension for each frame.
+These independent counts help people inspect the source products before applying
+scientific masks, wavelength calibration, or registration. The gates below define
+the acceptance cases for a future comparison pipeline. Contract-level tests in
 `tests/test_contract_validation.py` check the OpenAPI schema.
 
 ## Required comparison gates

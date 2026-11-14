@@ -1,5 +1,8 @@
 import unittest
+from collections import OrderedDict
 from io import BytesIO
+
+import pytest
 
 try:
     import fastapi  # noqa: F401
@@ -25,6 +28,11 @@ ROW_A = {
 ROW_B = {**ROW_A, "obs_id": "2026W19_1A_0403_1", "obs_publisher_did": "ivo://irsa.ipac/spherex_dr1?2026W19_1A_0403_1/D3", "t_min": "61165.082972", "t_max": "61165.083000"}
 
 
+@pytest.fixture(autouse=True)
+def isolate_cutout_cache(monkeypatch):
+    monkeypatch.setattr(api, "_cutout_cache", OrderedDict())
+
+
 def test_shared_contract_routes(monkeypatch):
     monkeypatch.setattr(api, "_archive_rows", lambda: ([ROW_A, ROW_B], api.SIA_PARAMETERS))
     assert client.get("/api/targets").json()[0]["id"] == "barnards-star"
@@ -45,6 +53,107 @@ def test_shared_contract_routes(monkeypatch):
         "target": "barnards-star", "epoch_a": ROW_A["obs_publisher_did"], "epoch_b": shifted["obs_publisher_did"],
     })
     assert incompatible.status_code == 422
+
+
+def test_comparison_optionally_inspects_synthetic_fits_cutouts(monkeypatch):
+    import numpy as np
+    from astropy.io import fits
+
+    def encode_cutout(*extensions):
+        output = BytesIO()
+        fits.HDUList([fits.PrimaryHDU(), *extensions]).writeto(output)
+        return output.getvalue()
+
+    image = np.array([[1, np.nan, 2], [3, 4, np.inf]], dtype=np.float32)
+    flags = np.array([[0, 1, 2], [0, 0, 4]], dtype=np.int16)
+    variance = np.array([[1, 2, 0], [-1, np.nan, np.inf]], dtype=np.float32)
+    row_b = {**ROW_B, "access_url": ROW_B["access_url"].replace("example.fits", "second.fits")}
+    payloads = {
+        ROW_A["access_url"]: encode_cutout(
+            fits.ImageHDU(data=image, name="IMAGE"),
+            fits.ImageHDU(data=flags, name="FLAGS"),
+            fits.ImageHDU(data=variance, name="VARIANCE"),
+            fits.BinTableHDU(name="WCS-WAVE"),
+        ),
+        row_b["access_url"]: encode_cutout(
+            fits.ImageHDU(data=image, name="IMAGE"),
+            fits.ImageHDU(data=flags[:, :2], name="FLAGS"),
+        ),
+    }
+    requests = []
+
+    def fake_fetch(url, data=None):
+        source_url, _, query = url.partition("?")
+        requests.append(source_url)
+        assert query == "center=269.446280%2C4.768000&size=0.05"
+        return payloads[source_url], {}
+
+    monkeypatch.setattr(api, "_archive_rows", lambda: ([ROW_A, row_b], api.SIA_PARAMETERS))
+    monkeypatch.setattr(api, "_fetch", fake_fetch)
+    params = {"target": "barnards-star", "epoch_a": ROW_A["obs_publisher_did"], "epoch_b": row_b["obs_publisher_did"]}
+    default = client.get("/api/compare", params=params)
+    assert default.status_code == 200
+    assert not requests
+    assert "statistics" not in default.json()
+
+    response = client.get("/api/compare", params={**params, "inspect_cutouts": "true"})
+    assert response.status_code == 200
+    assert sorted(requests) == sorted(payloads)
+    result = response.json()
+    assert result["status"] == "INSUFFICIENT_DATA"
+    assert "difference_url" not in result
+    assert "uncertainty" not in result
+    assert result["statistics"]["fits_inspection"] == {
+        "observation_a": {
+            "status": "available", "width": 3, "height": 2, "finite_image_pixels": 4,
+            "flagged_pixels": 3, "positive_variance_pixels": 2, "spectral_wcs_present": True,
+        },
+        "observation_b": {
+            "status": "available", "width": 3, "height": 2, "finite_image_pixels": 4,
+            "flagged_pixels": None, "positive_variance_pixels": None, "spectral_wcs_present": False,
+        },
+    }
+    preview = client.get("/api/preview", params={"target": params["target"], "observation_id": params["epoch_a"]})
+    assert preview.status_code == 200
+    assert preview.headers["content-type"] == "image/png"
+    assert len(requests) == 2
+
+    requests.clear()
+    shifted = {**row_b, "em_min": "2.4e-6", "em_max": "3.0e-6"}
+    monkeypatch.setattr(api, "_archive_rows", lambda: ([ROW_A, shifted], api.SIA_PARAMETERS))
+    assert client.get("/api/compare", params={**params, "inspect_cutouts": "true"}).status_code == 422
+    assert not requests
+
+
+def test_comparison_keeps_archive_provenance_when_cutout_diagnostics_fail(monkeypatch):
+    from urllib.error import URLError
+
+    from astropy.io import fits
+
+    row_b = {**ROW_B, "access_url": ROW_B["access_url"].replace("example.fits", "second.fits")}
+    missing_image = BytesIO()
+    fits.PrimaryHDU().writeto(missing_image)
+
+    def fake_fetch(url, data=None):
+        if url.startswith(row_b["access_url"]):
+            raise URLError("synthetic cutout outage")
+        return missing_image.getvalue(), {}
+
+    monkeypatch.setattr(api, "_archive_rows", lambda: ([ROW_A, row_b], api.SIA_PARAMETERS))
+    monkeypatch.setattr(api, "_fetch", fake_fetch)
+    response = client.get("/api/compare", params={
+        "target": "barnards-star", "epoch_a": ROW_A["obs_publisher_did"],
+        "epoch_b": row_b["obs_publisher_did"], "inspect_cutouts": "true",
+    })
+    assert response.status_code == 200
+    result = response.json()
+    assert result["status"] == "INSUFFICIENT_DATA"
+    assert result["observation_a"]["provenance"]["archive_fields"] == ROW_A
+    assert result["observation_b"]["provenance"]["archive_fields"] == row_b
+    assert result["statistics"]["fits_inspection"] == {
+        "observation_a": {"status": "unavailable"},
+        "observation_b": {"status": "unavailable"},
+    }
 
 
 def test_sia_post_uses_coordinator_verified_dr1_query(monkeypatch):
@@ -83,6 +192,52 @@ def test_cutout_uses_dr1_product_url_and_preserves_source_headers(monkeypatch):
     assert response.headers["x-source-url"] == ROW_A["access_url"]
     assert "center=269.446280%2C4.768000" in seen["url"]
     assert "size=0.05" in seen["url"]
+
+
+def test_cutout_retries_once_after_transient_archive_503(monkeypatch):
+    from urllib.error import HTTPError
+
+    requests = []
+
+    def fake_fetch(url, data=None):
+        requests.append(url)
+        if len(requests) == 1:
+            raise HTTPError(url, 503, "temporarily unavailable", {"Retry-After": "0"}, BytesIO())
+        return b"SIMPLE  =" + bytes(2871), {}
+
+    monkeypatch.setattr(api, "_archive_rows", lambda: ([ROW_A], api.SIA_PARAMETERS))
+    monkeypatch.setattr(api, "_fetch", fake_fetch)
+    response = client.get("/api/archive/cutout", params={
+        "target": "barnards-star", "observation_id": ROW_A["obs_publisher_did"],
+    })
+    assert response.status_code == 200
+    assert len(requests) == 2
+    assert requests[0] == requests[1]
+
+
+def test_cutout_reuses_successful_download_until_expiry(monkeypatch):
+    requests = []
+    now = [0.0]
+    monkeypatch.setattr(api, "monotonic", lambda: now[0])
+
+    def fake_fetch(url, data=None):
+        requests.append(url)
+        return b"SIMPLE  =" + bytes(2871), {}
+
+    # A distinct synthetic URL does not share the other route fixtures' source URL.
+    row = {**ROW_A, "access_url": ROW_A["access_url"].replace("example.fits", "cached.fits")}
+    monkeypatch.setattr(api, "_archive_rows", lambda: ([row], api.SIA_PARAMETERS))
+    monkeypatch.setattr(api, "_fetch", fake_fetch)
+    params = {"target": "barnards-star", "observation_id": row["obs_publisher_did"]}
+    first = client.get("/api/archive/cutout", params=params)
+    second = client.get("/api/archive/cutout", params=params)
+    assert first.status_code == second.status_code == 200
+    assert first.content == second.content
+    assert len(requests) == 1
+
+    now[0] += api.CUTOUT_CACHE_TTL_SECONDS
+    assert client.get("/api/archive/cutout", params=params).status_code == 200
+    assert len(requests) == 2
 
 
 def test_preview_renders_fits_image_as_display_only_png(monkeypatch):
