@@ -69,7 +69,7 @@ export function ImageryMethods() {
       </article>
       <article className="method-step" id="display-previews">
         <h2>Individual exposure previews</h2>
-        <p>We keep each FITS cutout on its native pixel grid, clip its finite brightness values at the 1st and 99.5th percentiles, and apply an inverse hyperbolic sine (asinh) stretch with strength 10. Nearest-neighbor enlargement keeps the original pixel boundaries. Nonfinite pixels appear black. Finite flagged pixels may still be shown. Each exposure has its own grayscale scale, so equal shades across exposures can represent different brightness.</p>
+        <p>We render a preview on request for each archive exposure. We keep its FITS cutout on the native pixel grid, clip its finite brightness values at the 1st and 99.5th percentiles, and apply an inverse hyperbolic sine (asinh) stretch with strength 10. Nearest-neighbor enlargement keeps the original pixel boundaries. Nonfinite pixels appear black. Finite flagged pixels may still be shown. Each exposure has its own grayscale scale, so equal shades across exposures can represent different brightness.</p>
       </article>
       <article className="method-step" id="display-comparisons">
         <h2>Aligned comparisons</h2>

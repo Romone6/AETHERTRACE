@@ -195,6 +195,20 @@ function viewLink(view: "explorer" | "evidence", target: string, channel: string
   return `/${view}?${params}`;
 }
 
+function ArchivePreviewLink({ target, observation }: { target: Target; observation: Observation }) {
+  const id = observation.id.split("?").at(-1);
+  return (
+    <Link
+      className="archive-preview-link"
+      href={viewLink("explorer", target.id, observation.channel, observation.id)}
+      prefetch={false}
+      aria-label={`Open enhanced preview for ${id}`}
+    >
+      View preview <span aria-hidden="true">↗</span>
+    </Link>
+  );
+}
+
 function ShareLink({ href }: { href: string }) {
   const [message, setMessage] = useState("");
   return (
@@ -258,7 +272,7 @@ function ComparisonResult({ comparison }: { comparison: Comparison }) {
 const pageCopy: Record<Exclude<View, "home">, { title: string; intro: string }> = {
   explorer: { title: "Observation explorer", intro: "Browse SPHEREx images by sky field, detector and date." },
   evidence: { title: "Compare observations", intro: "View two exposures and inspect the quality of their source images." },
-  archive: { title: "Archive records", intro: "Find observation IDs, exposure times, wavelength coverage and source files." },
+  archive: { title: "Archive records", intro: "Browse SPHEREx exposures by date and detector, and open the enhanced preview for any record." },
   method: { title: "How to read the images", intro: "Understand SPHEREx cutouts and what a visual comparison can tell you." },
 };
 
@@ -579,10 +593,16 @@ export default function Explorer({ view }: { view: View }) {
                     {channels.length ? channels.map((item) => <option key={item} value={item}>{item.replace("SPHEREx-", "")}</option>) : <option value="">—</option>}
                   </select></span></div>
                   <figure className="deck-stage">
-                    {frame && target && !previewFailed ? <img className="deck-image" src={previewUrl(target.id, frame.id)} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewFailed ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "Select a sky field"} detail={previewFailed ? "You can still review the observation details." : "Choose a field to view its images."} />}
+                    {frame && target && !previewFailed ? <img className="deck-image" src={previewUrl(target.id, frame.id)} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewFailed ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "Select a sky field"} detail={previewFailed ? "The archive cutout could not be loaded." : "Choose a field to view its images."} />}
                     {frame && !previewFailed && <figcaption className="deck-plate-caption">{frame.release} / {frame.channel.replace("SPHEREx-", "")}</figcaption>}
                   </figure>
-                  {frame && <p className="frame-caption"><span>Individual grayscale stretch</span><DisplayMethodLink kind="previews" /></p>}
+                  {frame && (
+                    <div className="frame-caption">
+                      <span>Individual grayscale stretch</span>
+                      {previewFailed && <button className="preview-retry" type="button" onClick={() => setPreviewFailed(false)}>Retry preview</button>}
+                      <DisplayMethodLink kind="previews" />
+                    </div>
+                  )}
                 </section>
                 <aside className="deck-aside">
                   <section className="card frame-meta"><div className="card-heading"><div><h2>Observation details</h2></div></div>
@@ -638,24 +658,60 @@ export default function Explorer({ view }: { view: View }) {
 
           {view === "archive" && (
             <section className="card archive-card"><div className="archive-toolbar"><div><h2>{loadingObservations ? "Loading records…" : `${filteredObservations.length} ${filteredObservations.length === 1 ? "observation" : "observations"}`}</h2></div><div className="archive-filters"><label className="search-box"><span aria-hidden="true">⌕</span><span className="sr-only">Search archive records</span><input type="search" placeholder="Search IDs, channel, date…" value={query} onChange={(event) => { setQuery(event.target.value); setVisibleCount(24); }} /></label><label className="filter-select"><span className="sr-only">Filter by detector channel</span><select value={archiveChannel} onChange={(event) => { setArchiveChannel(event.target.value); setVisibleCount(24); }}><option>All channels</option>{channels.map((item) => <option key={item}>{item}</option>)}</select></label></div></div>
-              <div className="archive-table-wrap" tabIndex={0} role="region" aria-label="Observation records table"><table className="archive-table"><thead><tr><th>Observation</th><th>Observed · UTC</th><th>Channel</th><th>Wavelength</th><th>Release</th><th>Variance</th></tr></thead><tbody>{filteredObservations.slice(0, visibleCount).map((item) => <tr key={item.id}><td><details className="record-disclosure"><summary><code>{item.id}</code></summary><div className="record-provenance"><p><strong>Source record</strong></p>{item.quality_flags?.length ? <p>Quality flags: {item.quality_flags.join(", ")}</p> : <p>No quality flags reported.</p>}{safeUrl(item.product_url) && <a href={safeUrl(item.product_url)!} target="_blank" rel="noreferrer">Open source product ↗</a>}</div></details></td><td>{formatDate(item.observed_at)}</td><td>{item.channel.replace("SPHEREx-", "")}</td><td>{item.wavelength_min_um.toFixed(3)}–{item.wavelength_max_um.toFixed(3)} μm</td><td><span className="table-release">{item.release}</span></td><td>{item.variance_available == null ? "—" : item.variance_available ? "Available" : "No"}</td></tr>)}</tbody></table></div>
+              <div className="archive-display-note"><span>Enhanced previews</span><DisplayMethodLink kind="previews" /></div>
+              <div className="archive-table-wrap" tabIndex={0} role="region" aria-label="Observation records table">
+                <table className="archive-table">
+                  <thead>
+                    <tr>
+                      {["Observation", "Observed · UTC", "Channel", "Wavelength", "Release", "Variance", "Preview"].map((label) => (
+                        <th key={label} scope="col">{label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredObservations.slice(0, visibleCount).map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <details className="record-disclosure">
+                            <summary><code>{item.id}</code></summary>
+                            <div className="record-provenance">
+                              <p><strong>Source record</strong></p>
+                              {item.quality_flags?.length ? <p>Quality flags: {item.quality_flags.join(", ")}</p> : <p>No quality flags reported.</p>}
+                              {safeUrl(item.product_url) && <a href={safeUrl(item.product_url)!} target="_blank" rel="noreferrer">Open source product ↗</a>}
+                            </div>
+                          </details>
+                        </td>
+                        <td><time dateTime={item.observed_at}>{formatDate(item.observed_at)}</time></td>
+                        <td>{item.channel.replace("SPHEREx-", "")}</td>
+                        <td>{item.wavelength_min_um.toFixed(3)}–{item.wavelength_max_um.toFixed(3)} μm</td>
+                        <td><span className="table-release">{item.release}</span></td>
+                        <td>{item.variance_available == null ? "—" : item.variance_available ? "Available" : "No"}</td>
+                        <td>{target && <ArchivePreviewLink target={target} observation={item} />}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <div className="archive-mobile-list" aria-label="Observation records">
                 {filteredObservations.slice(0, visibleCount).map((item) => (
-                  <details key={item.id} className="archive-mobile-record">
-                    <summary>
-                      <time dateTime={item.observed_at}>{formatDate(item.observed_at)}</time>
-                      <span>{item.channel.replace("SPHEREx-", "")} · {item.wavelength_min_um.toFixed(3)}–{item.wavelength_max_um.toFixed(3)} μm</span>
-                    </summary>
-                    <div className="archive-mobile-detail">
-                      <dl>
-                        <div><dt>Product ID</dt><dd><code>{item.id}</code></dd></div>
-                        <div><dt>Release</dt><dd>{item.release}</dd></div>
-                        <div><dt>Variance</dt><dd>{item.variance_available == null ? "Not reported" : item.variance_available ? "Available" : "Unavailable"}</dd></div>
-                      </dl>
-                      {item.quality_flags?.length ? <p>Quality flags: {item.quality_flags.join(", ")}</p> : <p>No quality flags reported.</p>}
-                      {safeUrl(item.product_url) && <a href={safeUrl(item.product_url)!} target="_blank" rel="noreferrer">Open source product ↗</a>}
-                    </div>
-                  </details>
+                  <div key={item.id} className="archive-mobile-record">
+                    <details>
+                      <summary>
+                        <time dateTime={item.observed_at}>{formatDate(item.observed_at)}</time>
+                        <span>{item.channel.replace("SPHEREx-", "")} · {item.wavelength_min_um.toFixed(3)}–{item.wavelength_max_um.toFixed(3)} μm</span>
+                      </summary>
+                      <div className="archive-mobile-detail">
+                        <dl>
+                          <div><dt>Product ID</dt><dd><code>{item.id}</code></dd></div>
+                          <div><dt>Release</dt><dd>{item.release}</dd></div>
+                          <div><dt>Variance</dt><dd>{item.variance_available == null ? "Not reported" : item.variance_available ? "Available" : "Unavailable"}</dd></div>
+                        </dl>
+                        {item.quality_flags?.length ? <p>Quality flags: {item.quality_flags.join(", ")}</p> : <p>No quality flags reported.</p>}
+                        {safeUrl(item.product_url) && <a href={safeUrl(item.product_url)!} target="_blank" rel="noreferrer">Open source product ↗</a>}
+                      </div>
+                    </details>
+                    {target && <ArchivePreviewLink target={target} observation={item} />}
+                  </div>
                 ))}
               </div>
               {!loadingObservations && filteredObservations.length === 0 && <EmptyState title="No matching records" detail={observations.length ? "Try a different observation ID, date or detector." : message} />}

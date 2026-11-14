@@ -3,7 +3,7 @@
 @font-face{font-family:Plex Serif;src:url('/fonts/plex-serif-regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
 @font-face{font-family:Plex Serif;src:url('/fonts/plex-serif-italic.ttf') format('truetype');font-style:italic;font-weight:400;font-display:swap}
 
-:root{color-scheme:light;--ink:#172234;--muted:#687285;--faint:#929aab;--line:#e2e5e9;--paper:#f8f8f5;--surface:#fff;--navy:#192841;--blue:#3655d6;--signal:#dc865d;--sage:#edf0e8;--brand-signal:#dc865d;--mono:ui-monospace,SFMono-Regular,Consolas,monospace;--sans:'Plex Sans',Arial,sans-serif;--serif:'Plex Serif',Georgia,serif;--radius:12px}
+:root{color-scheme:light;--ink:#172234;--muted:#536179;--faint:#929aab;--line:#dbe0e4;--paper:#f7f7f2;--surface:#fff;--navy:#192841;--blue:#234cc9;--signal:#dc865d;--sage:#edf0e8;--brand-signal:#dc865d;--mono:ui-monospace,SFMono-Regular,Consolas,monospace;--sans:'Plex Sans',Arial,sans-serif;--serif:'Plex Serif',Georgia,serif;--radius:12px}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}

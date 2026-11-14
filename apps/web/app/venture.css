@@ -561,7 +561,7 @@
   .archive-mobile-record summary { display: grid; gap: 3px; position: relative; padding: 10px 33px 10px 12px; cursor: pointer; list-style: none; }
   .archive-mobile-record summary::-webkit-details-marker { display: none; }
   .archive-mobile-record summary::after { content: "+"; position: absolute; right: 12px; top: 12px; color: var(--blue); font-size: 18px; }
-  .archive-mobile-record[open] summary::after { content: "−"; }
+  .archive-mobile-record details[open] summary::after { content: "−"; }
   .archive-mobile-record summary time { color: var(--navy); font-size: 14px; font-weight: 600; }
   .archive-mobile-record summary span { color: #4c5c71; font-size: 12px; }
   .archive-mobile-detail { padding: 0 12px 12px; border-top: 1px solid var(--line); color: #4c5c71; font-size: 12px; overflow-wrap: anywhere; }
@@ -580,3 +580,99 @@
 .method-step p + p { margin-top: 8px; }
 .method-source-list { display: grid; gap: 4px; padding-left: 18px; margin-bottom: 0; font-size: 14px; }
 .method-source-list a { color: var(--blue); text-underline-offset: 3px; }
+
+/* Shared interface hierarchy across the observation tools. */
+.site-header {
+  gap: clamp(16px, 3vw, 40px);
+  border-bottom-color: #d9dcd6;
+}
+.site-header nav a {
+  color: #455068;
+  font-size: 14px;
+  font-weight: 600;
+}
+.site-header nav a[aria-current="page"] { color: var(--blue); }
+.page-heading {
+  padding-bottom: clamp(17px, 2.5vw, 30px);
+  border-bottom: 1px solid var(--line);
+}
+.page-heading h1 { line-height: 1.05; }
+.page-heading > div > p:last-child { max-width: 56ch; color: var(--muted); font-size: 16px; }
+.home-fields h2 { font-family: var(--serif); }
+.home-image-toggle { background: #f8fafc; }
+.context-bar {
+  min-height: 64px;
+  padding: 9px clamp(12px, 2vw, 20px);
+  background: #f0f2ed;
+}
+.context-target label { color: var(--muted); font-size: 13px; font-weight: 600; }
+.context-target select, .channel-control select { min-height: 38px; font-size: 14px; }
+.context-message { font-variant-numeric: tabular-nums; }
+.card, .context-bar, .method-steps { border-radius: var(--radius); }
+.card-heading h2, .archive-toolbar h2 { font-size: clamp(21px, 2.5vw, 28px); }
+.frame-meta .card-heading h2 { font-size: 21px; }
+.deck-viewer, .frame-meta, .archive-card, .evidence-card, .comparison-result {
+  padding: clamp(14px, 2.3vw, 26px);
+}
+.deck-stage { margin-inline: 0; }
+.meta-list dt, .playback-controls > label, .channel-control > label {
+  color: #52617a;
+  font: 600 11px/1.5 var(--sans);
+  letter-spacing: .015em;
+  text-transform: none;
+}
+.meta-list dd, .record-link, .caution-note p { font-size: 13px; }
+.deck-stage .empty-state strong, .deck-stage .empty-state > span:last-child { color: #e7eefb; }
+.sequence-count, .record-count { color: #52617a; font-size: 11px; }
+.sequence-date { font-size: 12px; }
+.sequence-id, .sequence-wave { color: #52617a; font-size: 10px; }
+.section-copy, .comparison-caveat, .method-step p { font-size: 14px; }
+.archive-table th, .archive-table td { padding-block: 13px; }
+.archive-table th {
+  background: #eef1ed;
+  color: #3f4e63;
+  font: 600 12px/1.4 var(--sans);
+  letter-spacing: 0;
+}
+.archive-table td { color: #46536a; }
+.archive-display-note {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.archive-display-note > span { font-weight: 600; }
+.archive-preview-link, .display-method-link { text-underline-offset: 3px; }
+.archive-preview-link {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.archive-mobile-record > .archive-preview-link { margin: 0 12px 7px; }
+.preview-retry {
+  align-self: flex-start;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--blue);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.page-method .method-steps { padding-inline: clamp(0px, 2.5vw, 24px); }
+.page-method .method-step { padding-block: clamp(19px, 3vw, 31px); }
+.page-method .method-step h2 { font-size: clamp(21px, 2.5vw, 27px); }
+
+@media (max-width: 620px) {
+  .site-header nav a { min-height: 38px; font-size: 13px; }
+  .page-heading > div > p:last-child { font-size: 14px; }
+  .archive-mobile-record summary { padding-bottom: 5px; }
+}
