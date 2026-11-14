@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BarnardValidation, Blink, CometWalkthrough, verifiedBarnardFrames } from "./guided-observations";
+import { BarnardValidation, Blink, CometWalkthrough, WorkedExampleLink, verifiedBarnardFrames } from "./guided-observations";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 type Target = {
@@ -238,15 +238,16 @@ function ComparisonResult({ comparison }: { comparison: Comparison }) {
           <Blink key={`${a.id}:${b.id}`} frames={blinkFrames} />
         </>
       ) : <p className="comparison-caveat">Aligned blink preview unavailable. You can still inspect the original cutouts below.</p>}
-      <p className="comparison-caveat">
-        These 0.05° cutouts use the same sky coordinates. Brightness is scaled separately for each image, and the images are shown on their original pixel grids.
-      </p>
+      <div className="original-observations">
+        <h3>Source observations</h3>
+        <p className="comparison-caveat">Each 0.05° cutout uses its original pixel grid and an individual display scale.</p>
+      </div>
       <div className="comparison-cutouts">
         <ComparisonCutout key={`a:${comparison.observation_a.id}`} observation={comparison.observation_a} targetId={comparison.target} label="Observation A" inspection={isRecord(fits) ? fits.observation_a : undefined} />
         <ComparisonCutout key={`b:${comparison.observation_b.id}`} observation={comparison.observation_b} targetId={comparison.target} label="Observation B" inspection={isRecord(fits) ? fits.observation_b : undefined} />
       </div>
       <p className="comparison-caveat">
-        Counts describe each FITS plane separately. Flag bits include processing and status information and need interpretation before masking pixels. Comparing flux requires a shared mask, aligned images, and propagated uncertainty.
+        FITS counts describe each plane independently. Nonzero flags can record detector status or processing information.
       </p>
       <p className="comparison-caveat">This visual comparison cannot establish a change in brightness or position. A measurement requires aligned images, matched wavelengths and propagated uncertainty.</p>
     </section>
@@ -500,6 +501,12 @@ export default function Explorer({ view }: { view: View }) {
                   {loadingObservations || serviceState === "loading" ? "Loading observation…" : "Preview unavailable"}
                 </p>
               )}
+              {frame && target && (
+                <figcaption className="home-image-caption">
+                  <strong>{target.name}</strong>
+                  <time dateTime={frame.observed_at}>{formatDate(frame.observed_at, false)} UTC</time>
+                </figcaption>
+              )}
             </figure>
             {frame && (
               <dl className="home-facts" aria-label="Selected observation details">
@@ -509,46 +516,57 @@ export default function Explorer({ view }: { view: View }) {
               </dl>
             )}
             <p className="home-caveat">
-              {target && frame ? `${target.name} · ${formatDate(frame.observed_at, false)} · ` : ""}
               Brightness is scaled for display.
             </p>
           </section>
           <section className="home-fields" aria-labelledby="home-fields-title">
             <h2 id="home-fields-title">Browse sky fields</h2>
             {targetControls}
+            <WorkedExampleLink />
           </section>
         </>
       ) : (
         <div className="workspace">
-          <header className="page-heading"><div><h1>{pageCopy[view].title}</h1><p>{pageCopy[view].intro}</p></div></header>
+          <header className="page-heading">
+            <div><h1>{pageCopy[view].title}</h1><p>{pageCopy[view].intro}</p></div>
+            {view === "explorer" && <a className="page-jump" href="#comet-title">Follow comet 3I/ATLAS <span aria-hidden="true">↓</span></a>}
+            {view === "evidence" && <a className="page-jump" href="#barnard-example">Barnard’s Star example <span aria-hidden="true">↓</span></a>}
+          </header>
           {view !== "method" && targetControls}
 
           {view === "explorer" && (
             <>
               <div className="deck-grid">
                 <section className="deck-viewer card" aria-label="Observation sequence">
-                  <div className="card-heading"><div><span className="micro-label">{target?.name ?? "TARGET NOT SELECTED"}</span><h2>{frame ? formatDate(frame.observed_at, false) : "No observation selected"}</h2></div><span className="sequence-count">{frame ? `${frameIndex + 1} / ${channelObservations.length}` : "— / —"}</span></div>
-                  <div className="deck-stage">
-                    {frame && target && !previewFailed ? <img className="deck-image" src={previewUrl(target.id, frame.id)} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewFailed ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "Select a sky field"} detail={previewFailed ? "You can still review the observation details." : "Choose a field to view its images."} />}
+                  <div className="card-heading">
+                    <div>
+                      <h2>{target?.name ?? "Observations"}</h2>
+                      {frame && <time className="deck-time" dateTime={frame.observed_at}>{formatDate(frame.observed_at)}</time>}
+                    </div>
+                    <span className="sequence-count">{frame ? `${frameIndex + 1} / ${channelObservations.length}` : "— / —"}</span>
                   </div>
+                  <figure className="deck-stage">
+                    {frame && target && !previewFailed ? <img className="deck-image" src={previewUrl(target.id, frame.id)} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewFailed ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "Select a sky field"} detail={previewFailed ? "You can still review the observation details." : "Choose a field to view its images."} />}
+                    {frame && !previewFailed && <figcaption className="deck-plate-caption">{frame.release} / {frame.channel.replace("SPHEREx-", "")}</figcaption>}
+                  </figure>
                   <div className="playback-controls"><button type="button" className="play-button" onClick={() => setPlaying((value) => !value)} disabled={channelObservations.length < 2} aria-label={playing ? "Pause sequence" : "Play sequence"}>{playing ? "Ⅱ" : "▶"}</button><label htmlFor="frame-select">FRAME</label><input id="frame-select" type="range" min="0" max={Math.max(0, channelObservations.length - 1)} value={frameIndex} disabled={!channelObservations.length} onChange={(event) => { setPlaying(false); setFrameIndex(Number(event.target.value)); }} aria-valuetext={frame ? formatDate(frame.observed_at) : "No frame"} /><span className="channel-control"><label htmlFor="channel-select">CHANNEL</label><select id="channel-select" value={channel} disabled={!channels.length} onChange={(event) => { setChannel(event.target.value); setFrameIndex(0); setPlaying(false); }}>
                     {channels.length ? channels.map((item) => <option key={item} value={item}>{item.replace("SPHEREx-", "")}</option>) : <option value="">—</option>}
                   </select></span></div>
-                  {frame && target && <ShareLink key={frame.id} href={viewLink("explorer", target.id, channel, frame.id)} />}
-                  <div className="frame-caption"><span>{frame ? `${formatDate(frame.observed_at)} — ${formatDate(frame.observed_end)}` : message}</span><span>{frame ? `${frame.wavelength_min_um.toFixed(3)}–${frame.wavelength_max_um.toFixed(3)} μm` : "— μm"}</span></div>
+                  {frame && <p className="frame-caption">Brightness is scaled for display.</p>}
                 </section>
                 <aside className="deck-aside">
                   <section className="card frame-meta"><div className="card-heading"><div><h2>Observation details</h2></div></div>
-                    {frame ? <dl className="meta-list"><div><dt>PRODUCT ID</dt><dd>{frame.id}</dd></div><div><dt>DATA RELEASE</dt><dd>{frame.release}</dd></div><div><dt>CHANNEL</dt><dd>{frame.channel}</dd></div><div><dt>WAVELENGTH RANGE</dt><dd>{frame.wavelength_min_um.toFixed(3)}–{frame.wavelength_max_um.toFixed(3)} μm</dd></div><div><dt>VARIANCE</dt><dd>{frame.variance_available == null ? "Not reported" : frame.variance_available ? "Available" : "Not available"}</dd></div></dl> : <EmptyState title="No frame selected" detail="Frame metadata will appear when the archive returns observations." />}
+                    {frame ? <dl className="meta-list"><div><dt>Exposure ends</dt><dd>{formatDate(frame.observed_end)}</dd></div><div><dt>Product ID</dt><dd>{frame.id}</dd></div><div><dt>DATA RELEASE</dt><dd>{frame.release}</dd></div><div><dt>CHANNEL</dt><dd>{frame.channel}</dd></div><div><dt>WAVELENGTH RANGE</dt><dd>{frame.wavelength_min_um.toFixed(3)}–{frame.wavelength_max_um.toFixed(3)} μm</dd></div><div><dt>VARIANCE</dt><dd>{frame.variance_available == null ? "Not reported" : frame.variance_available ? "Available" : "Not available"}</dd></div></dl> : <EmptyState title="No frame selected" detail="Frame metadata will appear when the archive returns observations." />}
                     {safeUrl(frame?.product_url) && <a className="record-link" href={safeUrl(frame?.product_url)!} target="_blank" rel="noreferrer">Open source product <span aria-hidden="true">↗</span></a>}
+                    {frame && target && <ShareLink key={frame.id} href={viewLink("explorer", target.id, channel, frame.id)} />}
                   </section>
                   <div className="caution-note"><span className="caution-icon" aria-hidden="true">i</span><p>Each cutout uses the same sky coordinates.{target?.id === "barnards-star" && " The star’s motion can move it away from the center between exposures."}</p></div>
                 </aside>
               </div>
+              <CometWalkthrough />
               <section className="card sequence-strip"><div className="card-heading"><div><h2>Frames in this channel</h2></div><span className="record-count">{channelObservations.length} RECORDS</span></div>
                 {channelObservations.length ? <div className="sequence-list">{channelObservations.slice(Math.max(0, frameIndex - 2), frameIndex + 6).map((item, localIndex) => { const index = Math.max(0, frameIndex - 2) + localIndex; return <button type="button" key={item.id} className={`sequence-item ${index === frameIndex ? "is-selected" : ""}`} onClick={() => { setPlaying(false); setFrameIndex(index); }} aria-current={index === frameIndex ? "true" : undefined}><span className="sequence-node" /><span className="sequence-date">{formatDate(item.observed_at, false)}</span><span className="sequence-id">{item.id}</span><span className="sequence-wave">{item.wavelength_min_um.toFixed(2)}–{item.wavelength_max_um.toFixed(2)} μm</span></button>; })}</div> : <EmptyState title="No frames in this channel" detail={message} />}
               </section>
-              <CometWalkthrough />
             </>
           )}
 

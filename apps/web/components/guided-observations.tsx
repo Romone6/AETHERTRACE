@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import comet from "./comet-data.json";
 import barnard from "./barnard-data.json";
 
@@ -54,6 +55,16 @@ export function Blink({ frames }: { frames: [BlinkFrame, BlinkFrame] }) {
   );
 }
 
+export function WorkedExampleLink() {
+  return (
+    <Link className="example-link" href="/explorer#comet-title">
+      <img src={comet.frames[0].image} alt="" width={100} height={100} />
+      <div><strong>Follow interstellar comet 3I/ATLAS</strong><span>Three aligned SPHEREx exposures, with the comet’s predicted position.</span></div>
+      <span className="example-arrow" aria-hidden="true">↗</span>
+    </Link>
+  );
+}
+
 export function CometWalkthrough() {
   const [index, setIndex] = useState(0);
   const [showMarker, setShowMarker] = useState(true);
@@ -67,27 +78,39 @@ export function CometWalkthrough() {
   }, [index]);
 
   return (
-    <section className="card guided-observation" aria-labelledby="comet-title">
+    <section className="card guided-observation comet-walkthrough" aria-labelledby="comet-title">
       <h2 id="comet-title">Follow interstellar comet 3I/ATLAS</h2>
       <p>Step through three SPHEREx exposures taken minutes apart on 14 December 2025. The background sky is aligned so you can watch the comet move.</p>
-      <div className="comparison-image comet-stage">
-        <div className="comet-image">
-          <img src={frame.image} alt="SPHEREx infrared cutout of the 3I/ATLAS field" />
-          {showMarker && <span aria-hidden="true" className="comet-marker" style={{ left: `${frame.marker[0] * 100}%`, top: `${frame.marker[1] * 100}%` }} />}
+      <div className="comet-layout">
+        <div className="comparison-image comet-stage">
+          <div className="comet-image">
+            <img src={frame.image} alt="SPHEREx infrared cutout of the 3I/ATLAS field" />
+            {showMarker && <span aria-hidden="true" className="comet-marker" style={{ left: `${frame.marker[0] * 100}%`, top: `${frame.marker[1] * 100}%` }} />}
+          </div>
+        </div>
+        <div className="comet-controls">
+          <p className="comet-epoch" aria-live="polite">Frame {index + 1} of {comet.frames.length} · {observationDate(frame.date)}</p>
+          <div className="comet-filmstrip" role="group" aria-label="Comet exposures">
+            {comet.frames.map((exposure, i) => (
+              <button key={exposure.id} type="button" aria-pressed={index === i} aria-label={`Show exposure ${i + 1}`} onClick={() => setIndex(i)}>
+                <img src={exposure.image} alt="" width={60} height={60} loading="lazy" />
+                <time dateTime={exposure.date}>{exposure.date.slice(11, 19)} UTC</time>
+              </button>
+            ))}
+          </div>
+          <div className="observation-actions">
+            <button type="button" disabled={index === 0} onClick={() => setIndex(index - 1)}>Previous exposure</button>
+            <button type="button" disabled={index === comet.frames.length - 1} onClick={() => setIndex(index + 1)}>Next exposure</button>
+            <label><input type="checkbox" checked={showMarker} onChange={(event) => setShowMarker(event.target.checked)} /> Show predicted position</label>
+          </div>
+          <p>Predicted position from IRSA: {frame.ra.toFixed(5)}°, {frame.dec.toFixed(5)}° (ICRS). The circle marks the predicted position. These D6 images share a display scale. The archive flags the predicted center as an outlier in all three exposures. Local wavelength can vary, so use this sequence for visual inspection.</p>
+          <div className="cutout-links">
+            <a href={frame.source} target="_blank" rel="noreferrer">Source product ↗</a>
+            <a href="https://irsa.ipac.caltech.edu/data/SPHEREx/docs/comet3iatlas/index.html" target="_blank" rel="noreferrer">IRSA observation table ↗</a>
+          </div>
+          <p className="observation-id">{frame.id}</p>
         </div>
       </div>
-      <p aria-live="polite">Frame {index + 1} of {comet.frames.length} · {observationDate(frame.date)}</p>
-      <div className="observation-actions">
-        <button type="button" disabled={index === 0} onClick={() => setIndex(index - 1)}>Previous exposure</button>
-        <button type="button" disabled={index === comet.frames.length - 1} onClick={() => setIndex(index + 1)}>Next exposure</button>
-        <label><input type="checkbox" checked={showMarker} onChange={(event) => setShowMarker(event.target.checked)} /> Show predicted position</label>
-      </div>
-      <p>Predicted position from IRSA: {frame.ra.toFixed(5)}°, {frame.dec.toFixed(5)}° (ICRS). The circle marks the predicted position. These D6 images share a display scale. The archive flags the predicted center as an outlier in all three exposures. Local wavelength can vary, so use this sequence for visual inspection.</p>
-      <div className="cutout-links">
-        <a href={frame.source} target="_blank" rel="noreferrer">Source product ↗</a>
-        <a href="https://irsa.ipac.caltech.edu/data/SPHEREx/docs/comet3iatlas/index.html" target="_blank" rel="noreferrer">IRSA observation table ↗</a>
-      </div>
-      <p className="observation-id">{frame.id}</p>
     </section>
   );
 }
@@ -109,9 +132,12 @@ const barnardParams = new URLSearchParams({
 
 export function BarnardValidation() {
   return (
-    <details className="card guided-observation">
-      <summary>Worked example: Barnard’s Star</summary>
-      <p><strong>Insufficient data for a brightness measurement.</strong> The two D3 exposures have different calibrated wavelengths at the star, and the predicted center falls on flagged pixels in both.</p>
+    <details className="card guided-observation worked-example" id="barnard-example">
+      <summary>
+        <img src={barnard.frames[0].image} alt="" width={72} height={72} loading="lazy" />
+        <span><strong>Worked example: Barnard’s Star</strong><small>Inspect the flagged pixels and wavelength mismatch in two D3 exposures.</small></span>
+      </summary>
+      <p className="validation-finding"><strong>Insufficient data for a brightness measurement.</strong> The two D3 exposures have different calibrated wavelengths at the star, and the predicted center falls on flagged pixels in both.</p>
       <ul>
         <li>Position: Gaia DR3 space motion propagated to the middle of each exposure. Spacecraft-view parallax and the centroid were not fitted.</li>
         <li>Background alignment: celestial WCS puts {barnard.aligned_pixels} of {barnard.grid_pixels} pixels into a common usable footprint. Residual alignment against matched stars was not measured.</li>
