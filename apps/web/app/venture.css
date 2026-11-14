@@ -243,3 +243,25 @@
 @media(max-width:980px){.workspace{padding-right:4vw;padding-left:4vw}.deck-grid{grid-template-columns:minmax(0,1.5fr) minmax(230px,.8fr)}.deck-stage{min-height:340px}.deck-image{height:320px}.sequence-list{grid-template-columns:repeat(2,minmax(0,1fr))}.archive-table th,.archive-table td{padding-right:9px;padding-left:9px}}
 @media(max-width:720px){.site-header{height:67px;padding:0 4vw;gap:13px}.brand-mark{width:31px;height:31px}.wordmark{gap:7px}.wordmark>span{font-size:10px;letter-spacing:.13em}.site-header nav{gap:15px}.site-header nav a{font-size:11px}.workspace{padding:43px 5vw 72px}.page-heading{align-items:flex-start}.page-heading h1{font-size:49px}.page-heading>div>p:last-child{max-width:460px}.context-bar{flex-wrap:wrap;gap:8px 14px}.context-target{min-width:0;flex:1}.context-message{flex-basis:100%;margin:0;text-align:left}.deck-grid{grid-template-columns:1fr}.deck-stage{min-height:320px}.deck-image{height:300px}.deck-aside{display:grid;grid-template-columns:1fr}.frame-meta{min-width:0}.caution-note{align-self:start}.evidence-layout{grid-template-columns:1fr}.site-footer{padding-right:5vw;padding-left:5vw}}
 @media(max-width:520px){.site-header{height:auto;min-height:63px;flex-wrap:wrap;padding:10px 5vw}.site-header nav{order:3;flex-basis:100%;height:33px;justify-content:space-between;gap:8px}.site-header nav a{font-size:10px}.site-header nav a[aria-current=page]::after{bottom:-2px}.workspace{padding:34px 5vw 58px}.page-heading{display:block;margin-bottom:21px}.page-heading h1{margin-top:8px;font-size:43px}.page-heading>div>p:last-child{font-size:12px}.context-bar{padding:10px}.context-target{gap:6px}.context-target label{font-size:9px}.context-target select{max-width:100%;font-size:12px}.deck-viewer,.frame-meta,.sequence-strip,.evidence-card,.archive-card{padding:13px}.card-heading h2{font-size:19px}.deck-stage{min-height:255px;margin-top:11px}.deck-image{height:245px}.playback-controls{grid-template-columns:32px auto minmax(45px,1fr);gap:8px}.channel-control{grid-column:1/-1;justify-content:flex-start;padding:0;border:0}.frame-caption{flex-direction:column;gap:4px;font-size:8px}.deck-aside{grid-template-columns:1fr}.meta-list{margin-top:14px}.meta-list>div{grid-template-columns:1fr 1.4fr}.sequence-list{grid-template-columns:1fr}.compare-form{grid-template-columns:1fr}.compare-connector{display:none}.compare-form .button-primary{grid-column:1;justify-self:stretch;margin-top:8px}.archive-toolbar{align-items:flex-start;flex-direction:column}.archive-filters{width:100%}.search-box{width:100%;flex:1}.filter-select select{max-width:120px;min-width:0}.archive-table{min-width:760px}.record-provenance{min-width:250px}.method-step h2{font-size:18px}.method-links{align-items:flex-start;flex-direction:column}.site-footer{display:grid;grid-template-columns:1fr auto;gap:7px 12px}}
+
+.guided-observation { margin-top: 16px; padding: 20px; }
+.evidence-layout > .guided-observation { grid-column: 1 / -1; }
+.guided-observation h2, .guided-observation h3, .blink-panel h3, .guided-observation summary {
+  color: var(--navy);
+  font-family: var(--serif);
+  font-weight: 400;
+}
+.guided-observation h2 { margin-top: 0; }
+.guided-observation summary { font-size: 20px; cursor: pointer; }
+.guided-observation p, .guided-observation li, .blink-panel p { color: var(--muted); font-size: 13px; }
+.observation-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+.observation-actions button, .share-link { padding: 7px 12px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--navy); font: inherit; font-size: 13px; cursor: pointer; }
+.observation-actions button[aria-pressed="true"] { border-color: var(--blue); color: var(--blue); }
+.observation-actions button:disabled { opacity: .45; cursor: default; }
+.blink-panel { margin: 18px 0; }
+.blink-stage img { grid-area: 1 / 1; }
+.blink-hidden { visibility: hidden; }
+.comet-image { position: relative; width: min(100%, 330px); aspect-ratio: 1; }
+.comet-image img { width: 100%; height: 100%; }
+.comet-marker { position: absolute; width: 18px; height: 18px; border: 1px solid #f7ce73; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+.observation-id { overflow-wrap: anywhere; }

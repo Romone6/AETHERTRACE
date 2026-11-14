@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BarnardValidation, Blink, CometWalkthrough, verifiedBarnardFrames } from "./guided-observations";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 type Target = {
@@ -183,8 +184,46 @@ function ComparisonCutout({ observation, targetId, label, inspection }: {
   );
 }
 
+function previewUrl(target: string, observation: string) {
+  return `/api/preview?${new URLSearchParams({ target, observation_id: observation, size: "0.05" })}`;
+}
+
+function viewLink(view: "explorer" | "evidence", target: string, channel: string, a: string, b?: string) {
+  const params = new URLSearchParams({ target, channel, [view === "explorer" ? "frame" : "a"]: a });
+  if (b) params.set("b", b);
+  return `/${view}?${params}`;
+}
+
+function ShareLink({ href }: { href: string }) {
+  const [message, setMessage] = useState("");
+  return (
+    <div className="observation-actions">
+      <a href={href}>Link to this view</a>
+      <button type="button" onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(new URL(href, window.location.href).href);
+          setMessage("Link copied.");
+        } catch {
+          setMessage("Open the link to copy its address.");
+        }
+      }}>Copy link</button>
+      <span role="status">{message}</span>
+    </div>
+  );
+}
+
 function ComparisonResult({ comparison }: { comparison: Comparison }) {
   const fits = isRecord(comparison.statistics) && comparison.statistics.fits_inspection;
+  const alignment = isRecord(comparison.statistics) && comparison.statistics.visual_alignment;
+  const a = comparison.observation_a;
+  const b = comparison.observation_b;
+  const freshAlignment = isRecord(alignment) && alignment.status === "available" &&
+    typeof alignment.png_a === "string" && typeof alignment.png_b === "string";
+  const cachedFrames = verifiedBarnardFrames(comparison.target, a.id, b.id);
+  const blinkFrames = freshAlignment ? [
+    { image: `data:image/png;base64,${alignment.png_a}`, date: a.observed_at },
+    { image: `data:image/png;base64,${alignment.png_b}`, date: b.observed_at },
+  ] as [{ image: string; date: string }, { image: string; date: string }] : cachedFrames;
   return (
     <section className="card comparison-result" aria-labelledby="comparison-status">
       <div className="card-heading">
@@ -192,6 +231,13 @@ function ComparisonResult({ comparison }: { comparison: Comparison }) {
           <h2 id="comparison-status">{comparison.status === "INSUFFICIENT_DATA" ? "Visual comparison" : "Comparison results"}</h2>
         </div>
       </div>
+      <ShareLink href={viewLink("evidence", comparison.target, a.channel, a.id, b.id)} />
+      {blinkFrames ? (
+        <>
+          {!freshAlignment && <p className="comparison-caveat">Showing the saved alignment for these exact exposures.</p>}
+          <Blink key={`${a.id}:${b.id}`} frames={blinkFrames} />
+        </>
+      ) : <p className="comparison-caveat">Aligned blink preview unavailable. You can still inspect the original cutouts below.</p>}
       <p className="comparison-caveat">
         These 0.05° cutouts use the same sky coordinates. Brightness is scaled separately for each image, and the images are shown on their original pixel grids.
       </p>
@@ -234,6 +280,7 @@ export default function Explorer({ view }: { view: View }) {
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [comparisonMessage, setComparisonMessage] = useState("");
   const [loadingComparison, setLoadingComparison] = useState(false);
+  const [linkedPair, setLinkedPair] = useState<{ target: string; a: string; b: string } | null>(null);
   const comparisonRequest = useRef<AbortController | null>(null);
   const channels = Array.from(new Set(observations.map((item) => item.channel))).sort();
   const channelObservations = observations.filter((item) => item.channel === channel);
@@ -254,14 +301,17 @@ export default function Explorer({ view }: { view: View }) {
         if (!active) return;
         setTargets(data);
         setServiceState("ready");
+        const params = new URLSearchParams(window.location.search);
+        const requestedField = params.get("target");
         const savedTarget = window.sessionStorage.getItem("aethertrace-field");
-        const first = data.find((item) => item.id === savedTarget) ?? data[0];
+        const first = data.find((item) => item.id === requestedField)
+          ?? data.find((item) => item.id === savedTarget) ?? data[0];
         if (!first) {
           setMessage("No sky fields are available.");
           return;
         }
         setTarget(first);
-        await loadObservations(first);
+        await loadObservations(first, params);
       } catch {
         if (!active) return;
         setServiceState("error");
@@ -275,16 +325,38 @@ export default function Explorer({ view }: { view: View }) {
     };
   }, [view]);
 
-  async function loadObservations(selected: Target) {
+  async function loadObservations(selected: Target, selection?: URLSearchParams) {
     const request = ++observationRequest.current;
     setLoadingObservations(true);
     setMessage(`Loading observations for ${selected.name}…`);
     try {
       const data = await getObservations(selected.id);
       if (request !== observationRequest.current) return;
-      setObservations([...data].sort((a, b) => Date.parse(a.observed_at) - Date.parse(b.observed_at)));
-      setChannel(data.some((item) => item.channel === "SPHEREx-D3") ? "SPHEREx-D3" : (data[0]?.channel ?? ""));
-      setFrameIndex(0);
+      const sorted = [...data].sort((a, b) => Date.parse(a.observed_at) - Date.parse(b.observed_at));
+      setObservations(sorted);
+      const initialChannel = data.some((item) => item.channel === "SPHEREx-D3") ? "SPHEREx-D3" : (data[0]?.channel ?? "");
+      const requestedChannel = selection?.get("channel");
+      const activeChannel = requestedChannel && data.some((item) => item.channel === requestedChannel)
+        ? requestedChannel : initialChannel;
+      setChannel(activeChannel);
+      const activeFrames = sorted.filter((item) => item.channel === activeChannel);
+      const linkedFrame = selection?.get("frame");
+      const linkedIndex = activeFrames.findIndex((item) => item.id === linkedFrame);
+      setFrameIndex(Math.max(0, linkedIndex));
+      const a = selection?.get("a"), b = selection?.get("b");
+      if (view === "evidence" && a && b) {
+        if (a !== b && activeFrames.some((item) => item.id === a) && activeFrames.some((item) => item.id === b)) {
+          setEpochA(a);
+          setEpochB(b);
+          setLinkedPair({ target: selected.id, a, b });
+        } else {
+          setComparisonMessage("The linked observations are unavailable for this field and detector.");
+        }
+      }
+      if (view === "explorer" && linkedFrame && linkedIndex < 0) {
+        setMessage("The linked exposure is unavailable. Showing the first available frame.");
+        return;
+      }
       setMessage(data.length ? `${data.length.toLocaleString()} observations · ${new Set(data.map((item) => item.channel)).size} detector channels` : "No observations found for this field.");
     } catch {
       if (request !== observationRequest.current) return;
@@ -330,10 +402,14 @@ export default function Explorer({ view }: { view: View }) {
     setLoadingComparison(false);
   }
 
-  async function compare(event: FormEvent<HTMLFormElement>) {
+  function compare(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (target) void review(target.id, epochA, epochB);
+  }
+
+  async function review(targetId: string, epochA: string, epochB: string) {
     clearComparison();
-    if (!target || !epochA || !epochB || epochA === epochB) {
+    if (!epochA || !epochB || epochA === epochB) {
       setComparisonMessage("Choose two different observations before reviewing.");
       return;
     }
@@ -342,12 +418,12 @@ export default function Explorer({ view }: { view: View }) {
     setLoadingComparison(true);
     setComparisonMessage("Checking compatibility and inspecting the source cutouts…");
     try {
-      const params = new URLSearchParams({ target: target.id, epoch_a: epochA, epoch_b: epochB, inspect_cutouts: "true" });
+      const params = new URLSearchParams({ target: targetId, epoch_a: epochA, epoch_b: epochB, align_cutouts: "true" });
       const response = await fetch(`/api/compare?${params}`, { headers: { Accept: "application/json" }, signal: request.signal });
       if (!response.ok) throw new Error(response.status === 422 ? "Choose observations with matching release, detector and wavelength coverage." : "Comparison is temporarily unavailable.");
       const data: unknown = await response.json();
       if (request.signal.aborted) return;
-      if (!isRecord(data) || data.target !== target.id ||
+      if (!isRecord(data) || data.target !== targetId ||
         !isObservation(data.observation_a) || data.observation_a.id !== epochA ||
         !isObservation(data.observation_b) || data.observation_b.id !== epochB ||
         typeof data.status !== "string" || !Array.isArray(data.limitations) || !data.limitations.every((item) => typeof item === "string")) {
@@ -364,6 +440,24 @@ export default function Explorer({ view }: { view: View }) {
       }
     }
   }
+
+  useEffect(() => {
+    if (!linkedPair) return;
+    setLinkedPair(null);
+    void review(linkedPair.target, linkedPair.a, linkedPair.b);
+  }, [linkedPair]);
+
+  const nextFrame = channelObservations[frameIndex + 1];
+  useEffect(() => {
+    if (view !== "explorer" || !frame || !nextFrame || !target) return;
+    const current = new Image();
+    current.onload = () => {
+      const next = new Image();
+      next.src = previewUrl(target.id, nextFrame.id);
+    };
+    current.src = previewUrl(target.id, frame.id);
+    return () => { current.onload = null; };
+  }, [view, target, frame, nextFrame]);
 
   const targetControls = (
     <div className="context-bar">
@@ -397,7 +491,7 @@ export default function Explorer({ view }: { view: View }) {
               {frame && target && !previewFailed ? (
                 <img
                   key={frame.id}
-                  src={`/api/preview?target=${encodeURIComponent(target.id)}&observation_id=${encodeURIComponent(frame.id)}`}
+                  src={previewUrl(target.id, frame.id)}
                   alt={`SPHEREx ${frame.release} preview of ${target.name}, observed ${formatDate(frame.observed_at)}.`}
                   onError={() => setPreviewFailed(true)}
                 />
@@ -435,11 +529,12 @@ export default function Explorer({ view }: { view: View }) {
                 <section className="deck-viewer card" aria-label="Observation sequence">
                   <div className="card-heading"><div><span className="micro-label">{target?.name ?? "TARGET NOT SELECTED"}</span><h2>{frame ? formatDate(frame.observed_at, false) : "No observation selected"}</h2></div><span className="sequence-count">{frame ? `${frameIndex + 1} / ${channelObservations.length}` : "— / —"}</span></div>
                   <div className="deck-stage">
-                    {frame && target && !previewFailed ? <img className="deck-image" src={`/api/preview?target=${encodeURIComponent(target.id)}&observation_id=${encodeURIComponent(frame.id)}`} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewFailed ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "Select a sky field"} detail={previewFailed ? "You can still review the observation details." : "Choose a field to view its images."} />}
+                    {frame && target && !previewFailed ? <img className="deck-image" src={previewUrl(target.id, frame.id)} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewFailed ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "Select a sky field"} detail={previewFailed ? "You can still review the observation details." : "Choose a field to view its images."} />}
                   </div>
                   <div className="playback-controls"><button type="button" className="play-button" onClick={() => setPlaying((value) => !value)} disabled={channelObservations.length < 2} aria-label={playing ? "Pause sequence" : "Play sequence"}>{playing ? "Ⅱ" : "▶"}</button><label htmlFor="frame-select">FRAME</label><input id="frame-select" type="range" min="0" max={Math.max(0, channelObservations.length - 1)} value={frameIndex} disabled={!channelObservations.length} onChange={(event) => { setPlaying(false); setFrameIndex(Number(event.target.value)); }} aria-valuetext={frame ? formatDate(frame.observed_at) : "No frame"} /><span className="channel-control"><label htmlFor="channel-select">CHANNEL</label><select id="channel-select" value={channel} disabled={!channels.length} onChange={(event) => { setChannel(event.target.value); setFrameIndex(0); setPlaying(false); }}>
                     {channels.length ? channels.map((item) => <option key={item} value={item}>{item.replace("SPHEREx-", "")}</option>) : <option value="">—</option>}
                   </select></span></div>
+                  {frame && target && <ShareLink key={frame.id} href={viewLink("explorer", target.id, channel, frame.id)} />}
                   <div className="frame-caption"><span>{frame ? `${formatDate(frame.observed_at)} — ${formatDate(frame.observed_end)}` : message}</span><span>{frame ? `${frame.wavelength_min_um.toFixed(3)}–${frame.wavelength_max_um.toFixed(3)} μm` : "— μm"}</span></div>
                 </section>
                 <aside className="deck-aside">
@@ -453,6 +548,7 @@ export default function Explorer({ view }: { view: View }) {
               <section className="card sequence-strip"><div className="card-heading"><div><h2>Frames in this channel</h2></div><span className="record-count">{channelObservations.length} RECORDS</span></div>
                 {channelObservations.length ? <div className="sequence-list">{channelObservations.slice(Math.max(0, frameIndex - 2), frameIndex + 6).map((item, localIndex) => { const index = Math.max(0, frameIndex - 2) + localIndex; return <button type="button" key={item.id} className={`sequence-item ${index === frameIndex ? "is-selected" : ""}`} onClick={() => { setPlaying(false); setFrameIndex(index); }} aria-current={index === frameIndex ? "true" : undefined}><span className="sequence-node" /><span className="sequence-date">{formatDate(item.observed_at, false)}</span><span className="sequence-id">{item.id}</span><span className="sequence-wave">{item.wavelength_min_um.toFixed(2)}–{item.wavelength_max_um.toFixed(2)} μm</span></button>; })}</div> : <EmptyState title="No frames in this channel" detail={message} />}
               </section>
+              <CometWalkthrough />
             </>
           )}
 
@@ -482,6 +578,7 @@ export default function Explorer({ view }: { view: View }) {
               </div>
 
               {comparison && <ComparisonResult comparison={comparison} />}
+              <BarnardValidation />
             </section>
           )}
 

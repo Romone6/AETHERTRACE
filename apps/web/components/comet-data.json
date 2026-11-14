@@ -1,0 +1,67 @@
+{
+  "frames": [
+    {
+      "id": "ivo://irsa.ipac/spherex_dr1?2025W50_2A_0797_1/D6",
+      "date": "2025-12-14T17:26:06.662Z",
+      "end": "2025-12-14T17:28:01.747Z",
+      "ra": 166.67954944260336,
+      "dec": 5.330285440024438,
+      "marker": [
+        0.47655238584212073,
+        0.5087741741278691
+      ],
+      "source": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W50_2A/l2b-v27-2026-210/6/level2_2025W50_2A_0797_1D6_spx_l2b-v27-2026-210.fits",
+      "sha256": "a4b6335039559dbb77435acda25f03e9db46622a0baa6d654cad69fe345e039a",
+      "image": "/observations/comet/2025W50_2A_0797_1.png",
+      "local_excess": 6.6968582702166755,
+      "annulus_mad": 0.18121516280099084,
+      "preview_sha256": "80f08deb0ad27f323058ad10ca6d6875c7379fe95b8507371f2e5108261d7f95"
+    },
+    {
+      "id": "ivo://irsa.ipac/spherex_dr1?2025W50_2A_0797_2/D6",
+      "date": "2025-12-14T17:28:15.571Z",
+      "end": "2025-12-14T17:30:10.742Z",
+      "ra": 166.67789008715204,
+      "dec": 5.33086227023499,
+      "marker": [
+        0.5001409157343613,
+        0.5005386760015106
+      ],
+      "source": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W50_2A/l2b-v27-2026-210/6/level2_2025W50_2A_0797_2D6_spx_l2b-v27-2026-210.fits",
+      "sha256": "99bb7c7189c61f91878bd1c08cbaedaae09bc56fcce4a322b215863108a2a6e1",
+      "image": "/observations/comet/2025W50_2A_0797_2.png",
+      "local_excess": 2.843397183687024,
+      "annulus_mad": 0.08990397246557982,
+      "preview_sha256": "52d43568bb0026a253bb9ff0f9a4cae59720a86ee2c1ce9c51c29a06b7147d37"
+    },
+    {
+      "id": "ivo://irsa.ipac/spherex_dr1?2025W50_2A_0797_4/D6",
+      "date": "2025-12-14T17:32:33.475Z",
+      "end": "2025-12-14T17:34:28.560Z",
+      "ra": 166.67457141680111,
+      "dec": 5.33201589997138,
+      "marker": [
+        0.5473172661438499,
+        0.4840679274131047
+      ],
+      "source": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W50_2A/l2b-v27-2026-210/6/level2_2025W50_2A_0797_4D6_spx_l2b-v27-2026-210.fits",
+      "sha256": "aed4584af3ece3fca2a577cda2204c58c57bf15799a95dda152fdfdb75e7f31a",
+      "image": "/observations/comet/2025W50_2A_0797_4.png",
+      "local_excess": 2.2963911319678605,
+      "annulus_mad": 0.09335574063163973,
+      "preview_sha256": "50bdc9fb16dd5d7a91c444c7e9ae9a4bdd7f499ae3c0b4b1c291f630f926b1f0"
+    }
+  ],
+  "scale": [
+    0.7386151394902137,
+    4.2087804950430945
+  ],
+  "grid": {
+    "ra": 166.6779,
+    "dec": 5.3309,
+    "arcsec_per_pixel": 6.15,
+    "pixels": 41
+  },
+  "total_pixels": 1681,
+  "common_pixels": 1572
+}

@@ -2,6 +2,7 @@
 
 import csv
 import io
+import base64
 import math
 import urllib.error
 import urllib.parse
@@ -45,6 +46,7 @@ CUTOUT_CACHE_ENTRIES = 4
 CUTOUT_CACHE_TTL_SECONDS = 120
 _cutout_cache: OrderedDict[str, tuple[float, bytes]] = OrderedDict()
 _cutout_cache_lock = Lock()
+_preview_cache: OrderedDict[tuple[str, str, float], tuple[float, bytes, str]] = OrderedDict()
 
 
 class TargetModel(BaseModel):
@@ -183,6 +185,7 @@ def compare_observations(
     epoch_a: str = Query(...),
     epoch_b: str = Query(...),
     inspect_cutouts: bool = False,
+    align_cutouts: bool = False,
 ):
     target_info = _target(target)
     if epoch_a == epoch_b:
@@ -196,14 +199,36 @@ def compare_observations(
     if not compatible_epochs(observation_a, observation_b):
         raise HTTPException(422, "observations have incompatible releases or wavelength intervals")
     result = comparison(target, observation_a, observation_b)
-    if inspect_cutouts:
+    if inspect_cutouts or align_cutouts:
         result["statistics"] = {
             "fits_inspection": {
                 "observation_a": _cutout_inspection(observation_a, target_info),
                 "observation_b": _cutout_inspection(observation_b, target_info),
             },
         }
+    if align_cutouts:
+        result["statistics"]["visual_alignment"] = _aligned_preview(observation_a, observation_b, target_info)
     return result
+
+
+def _aligned_preview(observation_a, observation_b, target):
+    from astropy.io import fits
+    from services.api.alignment import align_pair, display_pair
+
+    try:
+        products = [_download_cutout(item.get("product_url", ""), target, DEFAULT_CUTOUT_SIZE)
+                    for item in (observation_a, observation_b)]
+        with fits.open(io.BytesIO(products[0])) as image_a, fits.open(io.BytesIO(products[1])) as image_b:
+            pair = align_pair(image_a, image_b)
+            png_a, png_b = display_pair(pair)
+        return {
+            "status": "available",
+            "common_pixels": int(pair.common.sum()),
+            "png_a": base64.b64encode(png_a).decode("ascii"),
+            "png_b": base64.b64encode(png_b).decode("ascii"),
+        }
+    except (HTTPException, OSError, ValueError, TypeError, KeyError):
+        return {"status": "unavailable"}
 
 
 @app.get("/api/candidates", response_model=list[CandidateModel])
@@ -295,6 +320,14 @@ def get_preview(target: str = Query(...), observation_id: str = Query(...), size
     from astropy.io import fits
     from PIL import Image
 
+    _target(target)
+    size = _number(size, "size", 0.1)
+    key = target, observation_id, size
+    with _cutout_cache_lock:
+        cached = _preview_cache.pop(key, None)
+        if cached is not None and cached[0] > monotonic():
+            _preview_cache[key] = cached
+            return _preview_response(cached[1], cached[2])
     fits_response = get_cutout(target, observation_id, size)
     try:
         with fits.open(io.BytesIO(fits_response.body), memmap=False) as hdus:
@@ -321,9 +354,20 @@ def get_preview(target: str = Query(...), observation_id: str = Query(...), size
         raise
     except Exception as error:
         raise HTTPException(502, "IRSA FITS image could not be rendered") from error
-    return Response(output.getvalue(), media_type="image/png", headers={
+    png, source = output.getvalue(), fits_response.headers["X-Source-URL"]
+    if len(png) <= 512 * 1024:
+        with _cutout_cache_lock:
+            _preview_cache[key] = (monotonic() + 3600, png, source)
+            _preview_cache.move_to_end(key)
+            if len(_preview_cache) > 64:
+                _preview_cache.popitem(last=False)
+    return _preview_response(png, source)
+
+
+def _preview_response(png: bytes, source: str):
+    return Response(png, media_type="image/png", headers={
         "Cache-Control": "public, max-age=86400",
-        "X-Source-URL": fits_response.headers["X-Source-URL"],
+        "X-Source-URL": source,
         "X-Display-Stretch": "percentile-1-99.5-asinh",
         "X-Scientific-Use": "visual-preview-only",
     })

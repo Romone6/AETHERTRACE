@@ -57,6 +57,10 @@ paths:
         - {name: target, in: query, required: true, schema: {type: string}}
         - {name: epoch_a, in: query, required: true, schema: {type: string}}
         - {name: epoch_b, in: query, required: true, schema: {type: string}}
+        - name: align_cutouts
+          in: query
+          description: Return WCS-aligned, shared-stretch display images when both cutouts are available.
+          schema: {type: boolean, default: false}
         - name: inspect_cutouts
           in: query
           description: Inspect both 0.05-degree FITS cutouts around the fixed query center after the archive compatibility check.
@@ -180,6 +184,15 @@ components:
           type: object
           additionalProperties: true
           properties:
+            visual_alignment:
+              type: object
+              description: Display-only common-grid registration result.
+              required: [status]
+              properties:
+                status: {type: string, enum: [available, unavailable]}
+                common_pixels: {type: integer, minimum: 1}
+                png_a: {type: string, contentEncoding: base64, contentMediaType: image/png}
+                png_b: {type: string, contentEncoding: base64, contentMediaType: image/png}
             fits_inspection:
               type: object
               description: Per-cutout diagnostics from the requested inspection. Each plane is counted independently.

@@ -31,6 +31,7 @@ ROW_B = {**ROW_A, "obs_id": "2026W19_1A_0403_1", "obs_publisher_did": "ivo://irs
 @pytest.fixture(autouse=True)
 def isolate_cutout_cache(monkeypatch):
     monkeypatch.setattr(api, "_cutout_cache", OrderedDict())
+    monkeypatch.setattr(api, "_preview_cache", OrderedDict())
 
 
 def test_shared_contract_routes(monkeypatch):
@@ -285,3 +286,56 @@ def test_preview_renders_fits_image_as_display_only_png(monkeypatch):
     assert response.headers["content-type"] == "image/png"
     assert response.headers["x-scientific-use"] == "visual-preview-only"
     assert response.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+
+
+def test_cached_preview_remains_available_when_source_fails(monkeypatch):
+    from fastapi import HTTPException, Response
+
+    from services.api.test_alignment import frame
+
+    data = BytesIO()
+    frame(0, 4.0).writeto(data)
+    source = "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/example.fits"
+    monkeypatch.setattr(api, "get_cutout", lambda *args: Response(
+        data.getvalue(), headers={"X-Source-URL": source},
+    ))
+    params = {"target": "barnards-star", "observation_id": ROW_A["obs_publisher_did"]}
+    first = client.get("/api/preview", params=params)
+
+    def offline(*args):
+        raise HTTPException(502, "archive unavailable")
+
+    monkeypatch.setattr(api, "get_cutout", offline)
+    second = client.get("/api/preview", params=params)
+    assert first.status_code == second.status_code == 200
+    assert first.content == second.content
+    assert second.headers["x-source-url"] == source
+    assert client.get("/api/preview", params={**params, "target": "andromeda"}).status_code == 502
+
+
+def test_aligned_comparison_returns_two_rendered_images_without_change_claim(monkeypatch):
+    import base64
+
+    from services.api.test_alignment import frame
+
+    row_b = {**ROW_B, "access_url": ROW_A["access_url"].replace("example", "example_b")}
+    monkeypatch.setattr(api, "_archive_rows", lambda _target: ([ROW_A, row_b], {}))
+    payloads = {}
+    for row, shift in ((ROW_A, 0), (row_b, 0.5)):
+        data = BytesIO()
+        frame(shift, 4.0 + shift).writeto(data)
+        payloads[row["access_url"]] = data.getvalue()
+    monkeypatch.setattr(api, "_download_cutout", lambda url, *args, **kwargs: payloads[url])
+
+    result = client.get("/api/compare", params={
+        "target": "barnards-star", "epoch_a": ROW_A["obs_publisher_did"],
+        "epoch_b": ROW_B["obs_publisher_did"], "align_cutouts": True,
+    })
+    assert result.status_code == 200
+    body = result.json()
+    assert body["status"] == "INSUFFICIENT_DATA"
+    alignment = body["statistics"]["visual_alignment"]
+    assert alignment["common_pixels"] > 25
+    for key in ("png_a", "png_b"):
+        assert base64.b64decode(alignment[key]).startswith(b"\x89PNG\r\n\x1a\n")

@@ -38,3 +38,7 @@ The available result includes these coverage checks.
 - `spectral_wcs_present` reports the presence of a WCS-WAVE extension. It does not validate its contents.
 
 The FLAGS and VARIANCE counts are independent of each other and of IMAGE finiteness. A missing, unreadable, nonnumeric or differently shaped plane yields a null count. These checks do not determine the usable joint mask, calibrate a measurement, or perform registration. See [IRSA's SPHEREx data product documentation](https://irsa.ipac.caltech.edu/spherex-archive-documentation/spherex-data-products/).
+
+`GET /api/compare` also supports `align_cutouts=true`. It includes FITS inspection and tries to reproject both exposures onto the first image’s celestial WCS. The optional `statistics.visual_alignment` contains a status and, when available, two base64 PNGs and the common usable pixel count. This display uses one clip range and the intersection of the quality masks. It leaves the scientific status unchanged.
+
+Rendered previews are retained in memory for one hour, up to 64 entries of no more than 512 KiB apiece. Each entry keeps its IRSA source URL. The selected comet and Barnard’s Star examples have bundled, source-traceable previews for reproducible viewing.
