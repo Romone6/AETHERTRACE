@@ -10,8 +10,8 @@ SSL_CERT_FILE="$(python -m certifi)" uvicorn services.api.app:app --reload
 ```
 
 - `GET /api/health`
-- `GET /api/targets` returns the Barnard's Star query center and its source caveat.
-- `GET /api/observations?target=barnards-star` POSTs the coordinator-verified SIA form query for `spherex_dr1` and returns rows conforming to the shared `Observation` schema. Original SIA fields, IDs, product URLs, time bounds, wavelength bounds, and available quality fields remain in `provenance`.
+- `GET /api/targets` lists the fixed ICRS field centers for Barnard's Star, Andromeda (M31), the Orion Nebula (M42), and the Pleiades (M45).
+- `GET /api/observations?target=barnards-star` queries `spherex_dr1` with a 0.01-degree cone around the selected field center. Original SIA fields, IDs, product URLs, time bounds, wavelength bounds, and available quality fields remain in `provenance`. The same field selection determines the center used by the cutout and preview routes.
 - `GET /api/compare?target=barnards-star&epoch_a=<product-id>&epoch_b=<product-id>` rejects identical, release-incompatible, channel-incompatible, or wavelength-incompatible products. Compatible IDs return `INSUFFICIENT_DATA` until image measurement and uncertainty propagation are implemented. Add `inspect_cutouts=true` to receive the FITS diagnostics below.
 - `GET /api/candidates?target=barnards-star` currently returns an empty array; candidate generation awaits measured, calibrated, registered data.
 - `GET /api/archive/cutout?target=barnards-star&observation_id=<observation-id>&size=0.05` looks up the source URL from DR1 SIA and returns its IRSA cutout as FITS. The source URL and cutout center/size are response headers.

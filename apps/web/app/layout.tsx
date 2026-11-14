@@ -6,9 +6,9 @@ import "./globals.css";
 import "./venture.css";
 
 export const metadata: Metadata = {
-  title: "Aethertrace — evidence in the infrared",
+  title: "Aethertrace | SPHEREx Observation Explorer",
   description:
-    "Explore SPHEREx observations with their archive provenance, uncertainty, and limitations intact.",
+    "Browse NASA SPHEREx infrared observations, compare image cutouts and explore archive records.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

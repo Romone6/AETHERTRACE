@@ -23,7 +23,6 @@ export default function SiteHeader() {
         <nav aria-label="Main navigation">
           {links.map(([href, label]) => <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined}>{label}</Link>)}
         </nav>
-        <Link className="header-cta" href="/explorer">Open deck <span aria-hidden="true">↗</span></Link>
       </header>
     </>
   );

@@ -34,7 +34,7 @@ def isolate_cutout_cache(monkeypatch):
 
 
 def test_shared_contract_routes(monkeypatch):
-    monkeypatch.setattr(api, "_archive_rows", lambda: ([ROW_A, ROW_B], api.SIA_PARAMETERS))
+    monkeypatch.setattr(api, "_archive_rows", lambda _target: ([ROW_A, ROW_B], api.SIA_PARAMETERS))
     assert client.get("/api/targets").json()[0]["id"] == "barnards-star"
     observations = client.get("/api/observations", params={"target": "barnards-star"}).json()
     assert len(observations) == 2
@@ -48,7 +48,7 @@ def test_shared_contract_routes(monkeypatch):
     assert "statistics" not in comparison
     assert client.get("/api/candidates", params={"target": "barnards-star"}).json() == []
     shifted = {**ROW_B, "em_min": "2.4e-6", "em_max": "3.0e-6"}
-    monkeypatch.setattr(api, "_archive_rows", lambda: ([ROW_A, shifted], api.SIA_PARAMETERS))
+    monkeypatch.setattr(api, "_archive_rows", lambda _target: ([ROW_A, shifted], api.SIA_PARAMETERS))
     incompatible = client.get("/api/compare", params={
         "target": "barnards-star", "epoch_a": ROW_A["obs_publisher_did"], "epoch_b": shifted["obs_publisher_did"],
     })
@@ -88,7 +88,7 @@ def test_comparison_optionally_inspects_synthetic_fits_cutouts(monkeypatch):
         assert query == "center=269.446280%2C4.768000&size=0.05"
         return payloads[source_url], {}
 
-    monkeypatch.setattr(api, "_archive_rows", lambda: ([ROW_A, row_b], api.SIA_PARAMETERS))
+    monkeypatch.setattr(api, "_archive_rows", lambda _target: ([ROW_A, row_b], api.SIA_PARAMETERS))
     monkeypatch.setattr(api, "_fetch", fake_fetch)
     params = {"target": "barnards-star", "epoch_a": ROW_A["obs_publisher_did"], "epoch_b": row_b["obs_publisher_did"]}
     default = client.get("/api/compare", params=params)
@@ -120,7 +120,7 @@ def test_comparison_optionally_inspects_synthetic_fits_cutouts(monkeypatch):
 
     requests.clear()
     shifted = {**row_b, "em_min": "2.4e-6", "em_max": "3.0e-6"}
-    monkeypatch.setattr(api, "_archive_rows", lambda: ([ROW_A, shifted], api.SIA_PARAMETERS))
+    monkeypatch.setattr(api, "_archive_rows", lambda _target: ([ROW_A, shifted], api.SIA_PARAMETERS))
     assert client.get("/api/compare", params={**params, "inspect_cutouts": "true"}).status_code == 422
     assert not requests
 
@@ -139,7 +139,7 @@ def test_comparison_keeps_archive_provenance_when_cutout_diagnostics_fail(monkey
             raise URLError("synthetic cutout outage")
         return missing_image.getvalue(), {}
 
-    monkeypatch.setattr(api, "_archive_rows", lambda: ([ROW_A, row_b], api.SIA_PARAMETERS))
+    monkeypatch.setattr(api, "_archive_rows", lambda _target: ([ROW_A, row_b], api.SIA_PARAMETERS))
     monkeypatch.setattr(api, "_fetch", fake_fetch)
     response = client.get("/api/compare", params={
         "target": "barnards-star", "epoch_a": ROW_A["obs_publisher_did"],
@@ -156,6 +156,35 @@ def test_comparison_keeps_archive_provenance_when_cutout_diagnostics_fail(monkey
     }
 
 
+def test_targets_use_their_own_archive_query_and_cutout_center(monkeypatch):
+    from urllib.parse import parse_qs, urlsplit
+
+    seen = []
+    columns = list(ROW_A)
+    csv_payload = (",".join(columns) + "\n" + ",".join(ROW_A.values()) + "\n").encode()
+
+    def fake_fetch(url, data=None):
+        if data:
+            seen.append(parse_qs(data.decode())["POS"][0])
+            return csv_payload, {}
+        seen.append(parse_qs(urlsplit(url).query)["center"][0])
+        return b"SIMPLE  =" + bytes(2871), {}
+
+    monkeypatch.setattr(api, "_fetch", fake_fetch)
+    targets = client.get("/api/targets").json()
+    assert {item["id"] for item in targets} == {"barnards-star", "andromeda", "orion-nebula", "pleiades"}
+    for target in targets:
+        params = {"target": target["id"]}
+        observations = client.get("/api/observations", params=params)
+        assert observations.status_code == 200
+        center = f"{target['ra_deg']:.6f},{target['dec_deg']:.6f}"
+        assert seen[-1] == f"CIRCLE {center.replace(',', ' ')} 0.01"
+        cutout = client.get("/api/archive/cutout", params={**params, "observation_id": ROW_A["obs_publisher_did"]})
+        assert cutout.status_code == 200
+        assert cutout.headers["x-cutout-center-icrs"] == center
+        assert seen[-1] == center
+
+
 def test_sia_post_uses_coordinator_verified_dr1_query(monkeypatch):
     seen = {}
     payload = ("obs_id,t_min,t_max,em_min,em_max\n"
@@ -166,7 +195,7 @@ def test_sia_post_uses_coordinator_verified_dr1_query(monkeypatch):
         return payload, {}
 
     monkeypatch.setattr(api, "_fetch", fake_fetch)
-    rows, _ = api._archive_rows()
+    rows, _ = api._archive_rows(api.TARGETS["barnards-star"])
     from urllib.parse import parse_qs
     assert seen["url"] == "https://irsa.ipac.caltech.edu/SIA"
     assert parse_qs(seen["form"]) == {
@@ -183,7 +212,7 @@ def test_cutout_uses_dr1_product_url_and_preserves_source_headers(monkeypatch):
         seen["url"] = url
         return b"SIMPLE  =" + bytes(2871), {}
 
-    monkeypatch.setattr(api, "_archive_rows", lambda: ([ROW_A], api.SIA_PARAMETERS))
+    monkeypatch.setattr(api, "_archive_rows", lambda _target: ([ROW_A], api.SIA_PARAMETERS))
     monkeypatch.setattr(api, "_fetch", fake_fetch)
     response = client.get("/api/archive/cutout", params={
         "target": "barnards-star", "observation_id": ROW_A["obs_publisher_did"], "size": "0.05",
@@ -205,7 +234,7 @@ def test_cutout_retries_once_after_transient_archive_503(monkeypatch):
             raise HTTPError(url, 503, "temporarily unavailable", {"Retry-After": "0"}, BytesIO())
         return b"SIMPLE  =" + bytes(2871), {}
 
-    monkeypatch.setattr(api, "_archive_rows", lambda: ([ROW_A], api.SIA_PARAMETERS))
+    monkeypatch.setattr(api, "_archive_rows", lambda _target: ([ROW_A], api.SIA_PARAMETERS))
     monkeypatch.setattr(api, "_fetch", fake_fetch)
     response = client.get("/api/archive/cutout", params={
         "target": "barnards-star", "observation_id": ROW_A["obs_publisher_did"],
@@ -226,7 +255,7 @@ def test_cutout_reuses_successful_download_until_expiry(monkeypatch):
 
     # A distinct synthetic URL does not share the other route fixtures' source URL.
     row = {**ROW_A, "access_url": ROW_A["access_url"].replace("example.fits", "cached.fits")}
-    monkeypatch.setattr(api, "_archive_rows", lambda: ([row], api.SIA_PARAMETERS))
+    monkeypatch.setattr(api, "_archive_rows", lambda _target: ([row], api.SIA_PARAMETERS))
     monkeypatch.setattr(api, "_fetch", fake_fetch)
     params = {"target": "barnards-star", "observation_id": row["obs_publisher_did"]}
     first = client.get("/api/archive/cutout", params=params)

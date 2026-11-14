@@ -19,16 +19,23 @@ from pydantic import BaseModel
 from services.api.science import COLLECTION, comparison, compatible_epochs, inspect_fits_cutout, observation_from_row
 
 IRSA_SIA = "https://irsa.ipac.caltech.edu/SIA"
-TARGET = {
-    "id": "barnards-star",
-    "name": "Barnard's Star",
-    "ra_deg": 269.446280,
-    "dec_deg": 4.768000,
-    "source": "Coordinator-verified IRSA SIA query center; catalog epoch and proper-motion propagation are not established.",
+TARGETS = {
+    target_id: {
+        "id": target_id,
+        "name": name,
+        "ra_deg": ra,
+        "dec_deg": dec,
+        "source": "Fixed ICRS field center used for the IRSA SPHEREx archive query.",
+    }
+    for target_id, name, ra, dec in (
+        ("barnards-star", "Barnard's Star", 269.446280, 4.768000),
+        ("andromeda", "Andromeda Galaxy (M31)", 10.684708, 41.268750),
+        ("orion-nebula", "Orion Nebula (M42)", 83.822083, -5.391111),
+        ("pleiades", "Pleiades (M45)", 56.750000, 24.116700),
+    )
 }
 SIA_PARAMETERS = {
     "COLLECTION": COLLECTION,
-    "POS": "CIRCLE 269.446280 4.768000 0.01",
     "RESPONSEFORMAT": "CSV",
     "MAXREC": "500",
 }
@@ -105,8 +112,12 @@ def _fetch(url: str, data: bytes | None = None) -> tuple[bytes, Any]:
         return response.read(), response.headers
 
 
-def _archive_rows() -> tuple[list[dict[str, str]], dict[str, str]]:
-    encoded = urllib.parse.urlencode(SIA_PARAMETERS).encode()
+def _archive_rows(target: dict[str, Any]) -> tuple[list[dict[str, str]], dict[str, str]]:
+    parameters = {
+        **SIA_PARAMETERS,
+        "POS": f"CIRCLE {target['ra_deg']:.6f} {target['dec_deg']:.6f} 0.01",
+    }
+    encoded = urllib.parse.urlencode(parameters).encode()
     try:
         payload, _ = _fetch(IRSA_SIA, encoded)
     except (urllib.error.URLError, TimeoutError, OSError) as error:
@@ -121,19 +132,20 @@ def _archive_rows() -> tuple[list[dict[str, str]], dict[str, str]]:
             if extra:
                 row["_extra_values"] = extra
             rows.append(row)
-        return rows, {name: value for name, value in SIA_PARAMETERS.items()}
+        return rows, parameters
     except (UnicodeDecodeError, csv.Error, ValueError) as error:
         raise HTTPException(502, "IRSA returned invalid SIA CSV") from error
 
 
 def _target(target_id: str) -> dict[str, Any]:
-    if target_id != TARGET["id"]:
+    target = TARGETS.get(target_id)
+    if target is None:
         raise HTTPException(404, "unknown target")
-    return TARGET
+    return target
 
 
-def _observations() -> list[dict[str, Any]]:
-    rows, parameters = _archive_rows()
+def _observations(target: dict[str, Any]) -> list[dict[str, Any]]:
+    rows, parameters = _archive_rows(target)
     try:
         return [observation_from_row(row, IRSA_SIA, parameters) for row in rows]
     except ValueError as error:
@@ -157,13 +169,12 @@ def health():
 
 @app.get("/api/targets", response_model=list[TargetModel])
 def list_targets():
-    return [TARGET]
+    return list(TARGETS.values())
 
 
 @app.get("/api/observations", response_model=list[ObservationModel], response_model_exclude_none=True)
 def list_observations(target: str = Query(...)):
-    _target(target)
-    return _observations()
+    return _observations(_target(target))
 
 
 @app.get("/api/compare", response_model=ComparisonModel, response_model_exclude_none=True)
@@ -176,7 +187,7 @@ def compare_observations(
     target_info = _target(target)
     if epoch_a == epoch_b:
         raise HTTPException(422, "epoch_a and epoch_b must identify different observations")
-    observations = _observations()
+    observations = _observations(target_info)
     by_id = {item["id"]: item for item in observations}
     try:
         observation_a, observation_b = by_id[epoch_a], by_id[epoch_b]
@@ -210,7 +221,7 @@ def get_cutout(
 ):
     target_info = _target(target)
     size = _number(size, "size", 0.1)
-    rows, _ = _archive_rows()
+    rows, _ = _archive_rows(target_info)
     row = next((item for item in rows if (
         item.get("obs_publisher_did") == observation_id
         or (not item.get("obs_publisher_did") and item.get("obs_id") == observation_id)
