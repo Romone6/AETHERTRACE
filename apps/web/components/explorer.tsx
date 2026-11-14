@@ -382,22 +382,46 @@ export default function Explorer({ view }: { view: View }) {
     <main id="main" className={`app-main page-${view}`}>
       {view === "home" ? (
         <>
-          <section className="home-hero">
+          <section className="home-hero" aria-labelledby="hero-title">
             <div className="home-copy">
-              <p className="eyebrow">NASA SPHEREx · Data Release 1</p>
-              <h1>Explore the <em>infrared sky</em></h1>
-              <p className="home-intro">Browse infrared images of galaxies, nebulae and stars across multiple observation dates.</p>
-              {targetControls}
-              <div className="home-actions">
-                <Link className="button-primary" href="/explorer">Explore observations</Link>
-                <Link className="text-link" href="/archive">Browse archive records</Link>
-              </div>
+              <h1 id="hero-title">
+                A closer look at<br />
+                the <em>infrared sky.</em>
+              </h1>
+              <p className="home-intro">
+                Explore SPHEREx observations across the sky, with clear context and provenance.
+              </p>
+              <Link className="home-cta" href="/explorer">Explore observations</Link>
             </div>
             <figure className="home-visual">
-              {frame && target && !previewFailed ? <img src={`/api/preview?target=${encodeURIComponent(target.id)}&observation_id=${encodeURIComponent(frame.id)}`} alt={`Display-only SPHEREx image preview for ${target.name}, observed ${formatDate(frame.observed_at)}.`} onError={() => setPreviewFailed(true)} /> : <div className="visual-empty">{loadingObservations || serviceState === "loading" ? "Loading image…" : "Image unavailable"}</div>}
-              <figcaption><span>{target?.name ?? "SPHEREx DR1"}</span>{frame && <time dateTime={frame.observed_at}>{formatDate(frame.observed_at, false)}</time>}</figcaption>
-              <p className="visual-caveat">Brightness is scaled for display.</p>
+              {frame && target && !previewFailed ? (
+                <img
+                  key={frame.id}
+                  src={`/api/preview?target=${encodeURIComponent(target.id)}&observation_id=${encodeURIComponent(frame.id)}`}
+                  alt={`SPHEREx ${frame.release} preview of ${target.name}, observed ${formatDate(frame.observed_at)}.`}
+                  onError={() => setPreviewFailed(true)}
+                />
+              ) : (
+                <p className="home-preview-status" role="status">
+                  {loadingObservations || serviceState === "loading" ? "Loading observation…" : "Preview unavailable"}
+                </p>
+              )}
             </figure>
+            {frame && (
+              <dl className="home-facts" aria-label="Selected observation details">
+                <div><dt>Data release</dt><dd>{frame.release}</dd></div>
+                <div><dt>Observation sequence</dt><dd>{channelObservations.length} {frame.channel.replace("SPHEREx-", "")} frames</dd></div>
+                <div><dt>Detector coverage</dt><dd>{frame.wavelength_min_um.toFixed(2)}–{frame.wavelength_max_um.toFixed(2)} μm</dd></div>
+              </dl>
+            )}
+            <p className="home-caveat">
+              {target && frame ? `${target.name} · ${formatDate(frame.observed_at, false)} · ` : ""}
+              Brightness is scaled for display.
+            </p>
+          </section>
+          <section className="home-fields" aria-labelledby="home-fields-title">
+            <h2 id="home-fields-title">Browse sky fields</h2>
+            {targetControls}
           </section>
         </>
       ) : (
