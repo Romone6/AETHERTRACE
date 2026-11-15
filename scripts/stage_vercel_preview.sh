@@ -12,6 +12,7 @@ done
 for file in app.py alignment.py display.py science.py; do
   cp "$repo_root/services/api/$file" "$stage/backend/services/api/"
 done
+cp "$repo_root/services/api/saved_observations.json" "$stage/backend/services/api/"
 python3 - "$repo_root/services/api/requirements.txt" "$stage/backend/pyproject.toml" <<'PY'
 import json
 from pathlib import Path

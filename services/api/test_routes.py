@@ -207,6 +207,47 @@ def test_sia_post_uses_coordinator_verified_dr1_query(monkeypatch):
     assert rows[0]["obs_id"] == "example"
 
 
+def test_observations_retry_sia_then_return_marked_saved_records(monkeypatch):
+    from urllib.error import HTTPError
+
+    requests = []
+
+    def unavailable(url, data=None):
+        requests.append((url, data))
+        raise HTTPError(url, 502, "temporarily unavailable", {}, BytesIO())
+
+    monkeypatch.setattr(api, "_fetch", unavailable)
+    monkeypatch.setattr(api, "sleep", lambda _seconds: None)
+    response = client.get("/api/observations", params={"target": "barnards-star"})
+
+    assert response.status_code == 200
+    assert len(requests) == 2
+    records = response.json()
+    assert len(records) == 2
+    assert all(item["provenance"]["snapshot_fallback"] is True for item in records)
+    assert all(item["provenance"]["source"] == "IRSA SIA2" for item in records)
+
+
+@pytest.mark.parametrize("target, count", [
+    ("andromeda", 1),
+    ("orion-nebula", 1),
+    ("pleiades", 1),
+])
+def test_saved_archive_fallback_covers_each_sky_field(monkeypatch, target, count):
+    from urllib.error import URLError
+
+    def unavailable(*_args, **_kwargs):
+        raise URLError("offline")
+
+    monkeypatch.setattr(api, "_fetch", unavailable)
+    response = client.get("/api/observations", params={"target": target})
+
+    assert response.status_code == 200
+    records = response.json()
+    assert len(records) == count
+    assert all(item["provenance"]["snapshot_fallback"] is True for item in records)
+
+
 def test_cutout_uses_dr1_product_url_and_preserves_source_headers(monkeypatch):
     seen = {}
 

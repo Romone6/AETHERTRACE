@@ -3,12 +3,14 @@
 import csv
 import io
 import base64
+import json
 import math
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections import OrderedDict
 from enum import Enum
+from pathlib import Path
 from threading import Lock
 from time import monotonic, sleep
 from typing import Any, Literal
@@ -50,6 +52,7 @@ _preview_cache: OrderedDict[tuple[str, str, float, str], tuple[float, bytes, str
 ARCHIVE_CACHE_TTL_SECONDS = 300
 _archive_cache: dict[str, tuple[float, list[dict[str, str]]]] = {}
 _archive_cache_lock = Lock()
+_saved_archive_path = Path(__file__).with_name("saved_observations.json")
 
 
 class TargetModel(BaseModel):
@@ -117,6 +120,31 @@ def _fetch(url: str, data: bytes | None = None) -> tuple[bytes, Any]:
         return response.read(), response.headers
 
 
+def _fetch_with_retry(url: str, data: bytes | None = None) -> tuple[bytes, Any]:
+    try:
+        return _fetch(url, data)
+    except urllib.error.HTTPError as error:
+        if error.code not in (502, 503, 504):
+            raise
+        retry_after = (error.headers or {}).get("Retry-After", "1")
+        if not retry_after.isascii() or not retry_after.isdecimal() or len(retry_after) > 2 or int(retry_after) > 5:
+            raise
+        error.close()
+        sleep(int(retry_after))
+        return _fetch(url, data)
+
+
+def _saved_archive(target_id: str) -> tuple[list[dict[str, str]], dict[str, str]] | None:
+    try:
+        snapshot = json.loads(_saved_archive_path.read_text())
+        target = snapshot["targets"].get(target_id)
+        if not target or not target["rows"]:
+            return None
+        return [{**row, "_aethertrace_snapshot": True} for row in target["rows"]], target["parameters"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 def _archive_rows(target: dict[str, Any]) -> tuple[list[dict[str, str]], dict[str, str]]:
     parameters = {
         **SIA_PARAMETERS,
@@ -129,8 +157,15 @@ def _archive_rows(target: dict[str, Any]) -> tuple[list[dict[str, str]], dict[st
             return cached[1], parameters
     encoded = urllib.parse.urlencode(parameters).encode()
     try:
-        payload, _ = _fetch(IRSA_SIA, encoded)
+        payload, _ = _fetch_with_retry(IRSA_SIA, encoded)
     except (urllib.error.URLError, TimeoutError, OSError) as error:
+        with _archive_cache_lock:
+            stale = _archive_cache.get(target_id)
+        if stale is not None:
+            return [{**row, "_aethertrace_snapshot": True} for row in stale[1]], parameters
+        saved = _saved_archive(target_id)
+        if saved is not None:
+            return saved
         raise HTTPException(502, "IRSA SIA request failed") from error
     try:
         reader = csv.DictReader(io.StringIO(payload.decode("utf-8-sig")))
@@ -158,8 +193,13 @@ def _target(target_id: str) -> dict[str, Any]:
 
 def _observations(target: dict[str, Any]) -> list[dict[str, Any]]:
     rows, parameters = _archive_rows(target)
+    snapshot_fallback = bool(rows) and all(row.pop("_aethertrace_snapshot", False) for row in rows)
     try:
-        return [observation_from_row(row, IRSA_SIA, parameters) for row in rows]
+        observations = [observation_from_row(row, IRSA_SIA, parameters) for row in rows]
+        if snapshot_fallback:
+            for observation in observations:
+                observation["provenance"]["snapshot_fallback"] = True
+        return observations
     except ValueError as error:
         raise HTTPException(502, "IRSA metadata cannot be represented by the shared observation contract") from error
 
@@ -289,18 +329,7 @@ def _download_cutout(source_url: str, target_info: dict[str, Any], size: float) 
                 _cutout_cache[cutout_url] = entry
                 return entry[1]
     try:
-        try:
-            payload, _ = _fetch(cutout_url)
-        except urllib.error.HTTPError as error:
-            if error.code not in (502, 503, 504):
-                raise
-            retry_after = (error.headers or {}).get("Retry-After", "1")
-            # Do not make the caller wait for a long outage or ignore a longer server hint.
-            if not retry_after.isascii() or not retry_after.isdecimal() or len(retry_after) > 2 or int(retry_after) > 5:
-                raise
-            error.close()
-            sleep(int(retry_after))
-            payload, _ = _fetch(cutout_url)
+        payload, _ = _fetch_with_retry(cutout_url)
     except (urllib.error.URLError, TimeoutError, OSError) as error:
         raise HTTPException(502, "IRSA cutout request failed") from error
     if len(payload) > MAX_CUTOUT_BYTES:

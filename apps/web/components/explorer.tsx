@@ -368,12 +368,13 @@ export default function Explorer({ view }: { view: View }) {
     setMessage(`Loading observations for ${selected.name}…`);
     try {
       let usingSaved = false;
-      const data = await getObservations(selected.id).catch((error) => {
+      const data: Observation[] = await getObservations(selected.id).catch((error) => {
         const saved = savedFields.get(selected.id);
         if (!saved) throw error;
         usingSaved = true;
         return saved.map((entry) => entry.observation);
       });
+      usingSaved ||= data.some((item) => isRecord(item.provenance) && item.provenance.snapshot_fallback === true);
       if (request !== observationRequest.current) return;
       setSavedCatalog(usingSaved);
       const sorted = [...data].sort((a, b) => Date.parse(a.observed_at) - Date.parse(b.observed_at));
