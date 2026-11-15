@@ -91,7 +91,7 @@ def comparison(target, observation_a, observation_b):
         "observation_b": observation_b,
         "status": "INSUFFICIENT_DATA",
         "limitations": [
-            "No image measurement or uncertainty propagation is implemented; no variability result is available.",
+            "The visual comparison provides no variability result. A measurement requires source photometry and its uncertainty.",
             "Proper motion and coordinate epoch must be checked before registration.",
             "Calibration consistency, spectral WCS, flags, masks, variance, background, and image registration require review.",
         ],

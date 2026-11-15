@@ -6,6 +6,7 @@ import { ShareLink } from "./share-link";
 import { BarnardValidation, BarnardMethod, Blink, CometWalkthrough, WorkedExampleLink, verifiedBarnardFrames } from "./guided-observations";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import savedDemo from "../public/observations/barnard/saved-exposures.json";
+import savedSkyFields from "../public/observations/saved-exposures/manifest.json";
 import { composites, DisplayMethodLink, ImageryMethods, SkyComposite } from "./sky-composites";
 
 type Target = {
@@ -56,7 +57,7 @@ type FitsInspection = {
 type View = "home" | "explorer" | "evidence" | "archive" | "method";
 
 let targetCatalog: Promise<Target[]> | null = null;
-const savedExposures = new Map(savedDemo.exposures.map((entry) => [entry.observation.id, entry]));
+const savedFields = new Map(Object.entries({ ...savedSkyFields, [savedDemo.target]: savedDemo.exposures }));
 const observationCatalog = new Map<string, Promise<Observation[]>>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -92,7 +93,10 @@ function getTargets() {
 function getObservations(targetId: string) {
   let records = observationCatalog.get(targetId);
   if (!records) {
-    records = fetch(`/api/observations?target=${encodeURIComponent(targetId)}`, { headers: { Accept: "application/json" } })
+    records = fetch(`/api/observations?target=${encodeURIComponent(targetId)}`, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(12_000),
+    })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Observation service returned ${response.status}.`);
         const data: unknown = await response.json();
@@ -145,16 +149,19 @@ function isFitsInspection(value: unknown): value is FitsInspection {
     typeof value.spectral_wcs_present === "boolean";
 }
 
-function ComparisonCutout({ observation, targetId, label, inspection, savedOnly }: {
+function ComparisonCutout({ observation, targetId, label, inspection, savedOnly, stretch }: {
   observation: Observation;
   targetId: string;
   label: string;
   inspection: unknown;
   savedOnly?: boolean;
+  stretch: ExposureStretch;
 }) {
-  const [previewFailed, setPreviewFailed] = useState(false);
+  const [failedPreview, setFailedPreview] = useState<string | null>(null);
   const params = new URLSearchParams({ target: targetId, observation_id: observation.id, size: "0.05" });
-  const savedPreview = targetId === savedDemo.target && (previewFailed || savedOnly) ? savedExposures.get(observation.id)?.preview : undefined;
+  const savedExposure = savedFields.get(targetId)?.find((entry) => entry.observation.id === observation.id);
+  const savedPreview = stretch === "linear" ? savedExposure?.linear_preview : savedExposure?.preview;
+  const previewSource = savedPreview ?? (savedOnly ? null : previewUrl(targetId, observation.id, stretch, 0));
   const sourceUrl = safeUrl(observation.product_url);
   const hasInspection = isFitsInspection(inspection);
 
@@ -167,10 +174,10 @@ function ComparisonCutout({ observation, targetId, label, inspection, savedOnly 
         <code>{observation.id}</code>
       </figcaption>
       <div className="comparison-image">
-        {previewFailed && !savedPreview ? (
+        {!previewSource || failedPreview === previewSource ? (
           <EmptyState title="Preview unavailable" detail="The source record remains available below." />
         ) : (
-          <img src={savedPreview ?? `/api/preview?${params}`} alt={`Display-only SPHEREx cutout from ${formatDate(observation.observed_at)}`} onError={() => setPreviewFailed(true)} />
+          <img key={previewSource} src={previewSource} alt={`Display-only SPHEREx cutout from ${formatDate(observation.observed_at)}`} onError={() => setFailedPreview(previewSource)} />
         )}
       </div>
       {savedPreview && <p className="saved-preview-note">Saved DR1 preview</p>}
@@ -195,9 +202,10 @@ function ComparisonCutout({ observation, targetId, label, inspection, savedOnly 
 
 type ExposureStretch = "asinh" | "linear";
 
-function previewUrl(target: string, observation: string, stretch: ExposureStretch = "asinh") {
+function previewUrl(target: string, observation: string, stretch: ExposureStretch, retry: number) {
   const params = new URLSearchParams({ target, observation_id: observation, size: "0.05" });
   if (stretch === "linear") params.set("stretch", stretch);
+  if (retry) params.set("retry", String(retry));
   return `/api/preview?${params}`;
 }
 
@@ -222,6 +230,7 @@ function ArchivePreviewLink({ target, observation }: { target: Target; observati
 }
 
 function ComparisonResult({ comparison }: { comparison: Comparison }) {
+  const [stretch, setStretch] = useState<ExposureStretch>("asinh");
   const fits = isRecord(comparison.statistics) && comparison.statistics.fits_inspection;
   const alignment = isRecord(comparison.statistics) && comparison.statistics.visual_alignment;
   const a = comparison.observation_a;
@@ -250,11 +259,15 @@ function ComparisonResult({ comparison }: { comparison: Comparison }) {
       ) : <p className="comparison-caveat">Aligned blink preview unavailable. You can still inspect the original cutouts below.</p>}
       <div className="original-observations">
         <h3>Source observations</h3>
-        <p className="comparison-caveat">Each 0.05° cutout uses its original pixel grid and an individual grayscale stretch. <DisplayMethodLink kind="previews" /></p>
+        <p className="comparison-caveat">Each 0.05° cutout uses its native pixel grid and its own brightness scale. Use the shared scale above to compare shades. <DisplayMethodLink kind="previews" /></p>
+        <div className="explorer-image-modes exposure-stretch" role="group" aria-label="Source cutout display">
+          <button type="button" aria-pressed={stretch === "asinh"} onClick={() => setStretch("asinh")}>Enhanced grayscale</button>
+          <button type="button" aria-pressed={stretch === "linear"} onClick={() => setStretch("linear")}>Linear contrast</button>
+        </div>
       </div>
       <div className="comparison-cutouts">
-        <ComparisonCutout key={`a:${comparison.observation_a.id}`} observation={comparison.observation_a} targetId={comparison.target} label="Observation A" savedOnly={comparison.saved} inspection={isRecord(fits) ? fits.observation_a : undefined} />
-        <ComparisonCutout key={`b:${comparison.observation_b.id}`} observation={comparison.observation_b} targetId={comparison.target} label="Observation B" savedOnly={comparison.saved} inspection={isRecord(fits) ? fits.observation_b : undefined} />
+        <ComparisonCutout key={`a:${a.id}`} observation={a} targetId={comparison.target} label="Observation A" savedOnly={comparison.saved} stretch={stretch} inspection={isRecord(fits) ? fits.observation_a : undefined} />
+        <ComparisonCutout key={`b:${b.id}`} observation={b} targetId={comparison.target} label="Observation B" savedOnly={comparison.saved} stretch={stretch} inspection={isRecord(fits) ? fits.observation_b : undefined} />
       </div>
       <p className="comparison-caveat">
         FITS counts describe each plane independently. Nonzero flags can record detector status or processing information.
@@ -285,7 +298,8 @@ export default function Explorer({ view }: { view: View }) {
   const [channel, setChannel] = useState("SPHEREx-D3");
   const [frameIndex, setFrameIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [previewFailed, setPreviewFailed] = useState(false);
+  const [failedPreview, setFailedPreview] = useState<string | null>(null);
+  const [previewRetry, setPreviewRetry] = useState(0);
   const [query, setQuery] = useState("");
   const [archiveChannel, setArchiveChannel] = useState("All channels");
   const [visibleCount, setVisibleCount] = useState(24);
@@ -299,13 +313,15 @@ export default function Explorer({ view }: { view: View }) {
   const channels = Array.from(new Set(observations.map((item) => item.channel))).sort();
   const channelObservations = observations.filter((item) => item.channel === channel);
   const frame = channelObservations[frameIndex];
-  const savedExposure = target?.id === savedDemo.target && frame && (savedCatalog || previewFailed)
-    ? savedExposures.get(frame.id) : undefined;
+  const savedExposure = target && frame
+    ? savedFields.get(target.id)?.find((entry) => entry.observation.id === frame.id) : undefined;
   const savedPreview = exposureStretch === "linear" ? savedExposure?.linear_preview : savedExposure?.preview;
-  const previewUnavailable = previewFailed && !savedPreview;
+  const previewSource = savedPreview ?? (target && frame ? previewUrl(target.id, frame.id, exposureStretch, previewRetry) : null);
+  const previewUnavailable = previewSource !== null && failedPreview === previewSource;
   const compositeField = target?.id ?? (view === "explorer" ? savedDemo.target : "orion-nebula");
   const hasComposite = Boolean(composites[compositeField]);
-  const showingComposite = showComposite && hasComposite;
+  const homeExposureUnavailable = view === "home" && !frame;
+  const showingComposite = hasComposite && (showComposite || homeExposureUnavailable);
   const exposureMode = view === "explorer" && !showingComposite;
   const filteredObservations = observations.filter((item) => {
     const needle = query.trim().toLocaleLowerCase();
@@ -353,9 +369,10 @@ export default function Explorer({ view }: { view: View }) {
     try {
       let usingSaved = false;
       const data = await getObservations(selected.id).catch((error) => {
-        if (selected.id !== savedDemo.target) throw error;
+        const saved = savedFields.get(selected.id);
+        if (!saved) throw error;
         usingSaved = true;
-        return savedDemo.exposures.map((entry) => entry.observation);
+        return saved.map((entry) => entry.observation);
       });
       if (request !== observationRequest.current) return;
       setSavedCatalog(usingSaved);
@@ -384,7 +401,9 @@ export default function Explorer({ view }: { view: View }) {
         setMessage("The linked exposure is unavailable. Showing the first available frame.");
         return;
       }
-      setMessage(usingSaved ? "Archive unavailable · 2 saved DR1 exposures" : data.length ? `${data.length.toLocaleString()} observations · ${new Set(data.map((item) => item.channel)).size} detector channels` : "No observations found for this field.");
+      setMessage(usingSaved
+        ? `Archive unavailable · ${data.length} saved DR1 ${data.length === 1 ? "exposure" : "exposures"}`
+        : data.length ? `${data.length.toLocaleString()} observations · ${new Set(data.map((item) => item.channel)).size} detector channels` : "No observations found for this field.");
     } catch {
       if (request !== observationRequest.current) return;
       setObservations([]);
@@ -418,8 +437,6 @@ export default function Explorer({ view }: { view: View }) {
     const timer = window.setInterval(() => setFrameIndex((index) => (index + 1) % channelObservations.length), 1200);
     return () => window.clearInterval(timer);
   }, [playing, channelObservations.length]);
-
-  useEffect(() => setPreviewFailed(false), [frame?.id]);
 
   useEffect(() => () => comparisonRequest.current?.abort(), []);
 
@@ -463,8 +480,8 @@ export default function Explorer({ view }: { view: View }) {
       setComparisonMessage("");
     } catch (error) {
       if (request.signal.aborted) return;
-      const a = savedExposures.get(epochA);
-      const b = savedExposures.get(epochB);
+      const a = savedDemo.exposures.find((entry) => entry.observation.id === epochA);
+      const b = savedDemo.exposures.find((entry) => entry.observation.id === epochB);
       if (targetId === savedDemo.target && a && b) {
         setComparison({
           target: targetId, observation_a: a.observation, observation_b: b.observation,
@@ -489,17 +506,10 @@ export default function Explorer({ view }: { view: View }) {
     void review(linkedPair.target, linkedPair.a, linkedPair.b);
   }, [linkedPair]);
 
-  const nextFrame = channelObservations[frameIndex + 1];
-  useEffect(() => {
-    if (!exposureMode || savedCatalog || !frame || !nextFrame || !target) return;
-    const current = new Image();
-    current.onload = () => {
-      const next = new Image();
-      next.src = previewUrl(target.id, nextFrame.id, exposureStretch);
-    };
-    current.src = previewUrl(target.id, frame.id, exposureStretch);
-    return () => { current.onload = null; };
-  }, [exposureMode, target, frame, nextFrame, savedCatalog, exposureStretch]);
+  function retryPreview() {
+    setFailedPreview(null);
+    setPreviewRetry(Date.now());
+  }
 
   useEffect(() => {
     if (view !== "evidence") return;
@@ -522,7 +532,10 @@ export default function Explorer({ view }: { view: View }) {
       </div>
       <span className="context-message" role="status">{message}</span>
       {message.startsWith("Archive unavailable") && target?.id !== savedDemo.target && (
-        <button className="preview-retry" type="button" onClick={() => void chooseTarget(savedDemo.target)}>Open saved exposures</button>
+        <button className="preview-retry context-saved-action" type="button" onClick={() => {
+          if (view === "home") setShowComposite(false);
+          void chooseTarget(savedDemo.target);
+        }}>Open saved Barnard exposures</button>
       )}
     </div>
   );
@@ -550,12 +563,12 @@ export default function Explorer({ view }: { view: View }) {
               <SkyComposite field={compositeField} id="home-image" />
             ) : (
               <figure id="home-image" className="home-visual">
-                {frame && target && !previewUnavailable ? (
+                {frame && target && previewSource && !previewUnavailable ? (
                   <img
-                    key={frame.id}
-                    src={savedPreview ?? previewUrl(target.id, frame.id)}
+                    key={previewSource}
+                    src={previewSource}
                     alt={`SPHEREx ${frame.release} preview of ${target.name}, observed ${formatDate(frame.observed_at)}.`}
-                    onError={() => setPreviewFailed(true)}
+                    onError={() => setFailedPreview(previewSource)}
                   />
                 ) : (
                   <p className="home-preview-status" role="status">
@@ -577,10 +590,12 @@ export default function Explorer({ view }: { view: View }) {
               type="button"
               className="home-image-toggle"
               aria-controls="home-image"
+              disabled={showingComposite && homeExposureUnavailable}
               onClick={() => setShowComposite((value) => !value)}
             >
               {showingComposite ? "Show a single exposure" : "Show the false-color composite"}
             </button>}
+            {!showingComposite && previewUnavailable && <button className="preview-retry" type="button" onClick={retryPreview}>Retry preview</button>}
             {!showingComposite && frame && (
               <dl className="home-facts" aria-label="Selected observation details">
                 <div><dt>Data release</dt><dd>{frame.release}</dd></div>
@@ -627,17 +642,17 @@ export default function Explorer({ view }: { view: View }) {
                       {channels.length ? channels.map((item) => <option key={item} value={item}>{item.replace("SPHEREx-", "")}</option>) : <option value="">—</option>}
                     </select></span></div>
                     <div className="explorer-image-modes exposure-stretch" role="group" aria-label="Exposure display">
-                      <button type="button" aria-pressed={exposureStretch === "asinh"} onClick={() => { setPreviewFailed(false); setExposureStretch("asinh"); }}>Enhanced</button>
-                      <button type="button" aria-pressed={exposureStretch === "linear"} onClick={() => { setPreviewFailed(false); setExposureStretch("linear"); }}>Linear contrast</button>
+                      <button type="button" aria-pressed={exposureStretch === "asinh"} onClick={() => setExposureStretch("asinh")}>Enhanced</button>
+                      <button type="button" aria-pressed={exposureStretch === "linear"} onClick={() => setExposureStretch("linear")}>Linear contrast</button>
                     </div>
                     <figure className="deck-stage">
-                      {frame && target && !previewUnavailable ? <img key={`${frame.id}:${exposureStretch}`} className="deck-image" src={savedPreview ?? previewUrl(target.id, frame.id, exposureStretch)} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewUnavailable ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "No exposure available"} detail={previewUnavailable ? "The archive cutout could not be loaded." : "Choose a field to view its images."} />}
+                      {frame && target && previewSource && !previewUnavailable ? <img key={previewSource} className="deck-image" src={previewSource} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setFailedPreview(previewSource)} /> : <EmptyState title={previewUnavailable ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "No exposure available"} detail={previewUnavailable ? "The archive cutout could not be loaded." : "Choose a field to view its images."} />}
                       {frame && !previewUnavailable && <figcaption className="deck-plate-caption">{frame.release} / {frame.channel.replace("SPHEREx-", "")}</figcaption>}
                     </figure>
                     {frame && (
                       <div className="frame-caption">
                         <span>{savedPreview ? "Saved DR1 preview · " : ""}{exposureStretch === "asinh" ? "Enhanced grayscale · asinh stretch" : "Linear grayscale · 1st–90th percentiles"}</span>
-                        {previewUnavailable && <button className="preview-retry" type="button" onClick={() => setPreviewFailed(false)}>Retry preview</button>}
+                        {previewUnavailable && <button className="preview-retry" type="button" onClick={retryPreview}>Retry preview</button>}
                         <DisplayMethodLink kind="previews" />
                       </div>
                     )}
@@ -665,7 +680,7 @@ export default function Explorer({ view }: { view: View }) {
 
           {view === "evidence" && (
             <section className="evidence-layout">
-              <div className="card evidence-card"><div className="card-heading"><h2>Choose two observations</h2></div><p className="section-copy">Both observations must use the same release, detector and wavelength coverage.</p>
+              <div className="card evidence-card"><div className="card-heading"><h2>Choose two observations</h2></div><p className="section-copy">Choose exposures with the same release, detector and archive wavelength range. The wavelength at the target can still differ.</p>
                 <label className="evidence-channel">Detector <select value={channel} disabled={!channels.length} onChange={(event) => { setChannel(event.target.value); setEpochA(""); setEpochB(""); clearComparison(); }}>{channels.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
                 <form className="compare-form" onSubmit={compare}>
                   <label>OBSERVATION A
@@ -759,7 +774,14 @@ export default function Explorer({ view }: { view: View }) {
           {view === "method" && (
             <>
               <div className="method-steps">
-                <article className="method-step"><div><h2>Source observations</h2><p>The NASA/IPAC Infrared Science Archive provides the SPHEREx Data Release 1 images. Each record includes the original observation ID, exposure time, detector and wavelength range.</p></div></article>
+                <article className="method-step">
+                  <h2>Source observations</h2>
+                  <p>The NASA/IPAC Infrared Science Archive provides SPHEREx Data Release 1. SPHEREx is a joint project of JPL and Caltech, funded by NASA. Each record includes the original observation ID, exposure time, detector and archive wavelength range.</p>
+                  <ul className="method-source-list" aria-label="SPHEREx dataset citations">
+                    <li><a href="https://doi.org/10.26131/IRSA678">DR1 Spectral Images · 10.26131/IRSA678</a></li>
+                    <li><a href="https://doi.org/10.26131/IRSA679">DR1 Spectral All-Sky Cube · 10.26131/IRSA679</a></li>
+                  </ul>
+                </article>
                 <ImageryMethods />
                 <article className="method-step"><div><h2>Scientific comparisons</h2><p>Measuring a change requires matching the wavelength at the target, aligning the images, interpreting pixel flags and accounting for uncertainty. A moving target may also need a different cutout center at each exposure.</p></div></article>
               </div>

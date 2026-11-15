@@ -1,5 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+import { getSimulatedDisplay } from "./simulated-views";
 import orion from "../public/observations/orion-composite.json";
+import orionCore from "../public/observations/orion-4005-composite.json";
 import andromeda from "../public/observations/andromeda-composite.json";
 import pleiades from "../public/observations/pleiades-composite.json";
 import barnard from "../public/observations/barnard-field-composite.json";
@@ -11,37 +16,55 @@ export const composites: Record<string, typeof orion | undefined> = {
   "barnards-star": barnard,
 };
 
-export function DisplayMethodLink({ kind }: { kind: "composites" | "previews" | "comparisons" | "comet" }) {
+export function DisplayMethodLink({ kind }: { kind: "composites" | "previews" | "comparisons" | "comet" | "simulation" }) {
   return <Link className="display-method-link" href={`/method#display-${kind}`}>Display method</Link>;
 }
 
 export function SkyComposite({ field, id, explorer = false }: { field: string; id?: string; explorer?: boolean }) {
-  const composite = composites[field];
+  const [showOrionCore, setShowOrionCore] = useState(false);
+  const [showSimulation, setShowSimulation] = useState(false);
+  const isOrion = field === "orion-nebula";
+  const singleBand = isOrion && showOrionCore;
+  const composite = singleBand ? orionCore : composites[field];
   if (!composite) return null;
+  const measuredPath = `/observations/${composite.image}`;
+  const simulation = showSimulation ? getSimulatedDisplay(measuredPath) : undefined;
   return (
     <figure id={id} className="home-visual home-composite">
       <div className="home-composite-plate">
-        <img
-          src={`/observations/${composite.image}`}
-          width={composite.size_px[0]}
-          height={composite.size_px[1]}
-          alt={`False-color infrared view of ${composite.title}.`}
-        />
+        <div className="composite-image-stack">
+          <img
+            src={simulation ? `/${simulation.completion}` : measuredPath}
+            width={composite.size_px[0]}
+            height={composite.size_px[1]}
+            alt={simulation ? `Simulated completion of ${composite.title}. Amber hatching marks estimates.` : singleBand ? "Orion Nebula in measured 4.005 micrometer infrared brightness." : `False-color infrared view of ${composite.title}.`}
+          />
+          {simulation && <img className="simulation-mask" src={`/${simulation.mask}`} alt="" />}
+        </div>
       </div>
       <figcaption className="home-composite-caption">
-        <span>{composite.release} · False color</span>
+        <span>{simulation ? `${composite.release}-based · Simulated completion` : `${composite.release} · ${singleBand ? "4.005 μm grayscale" : "False color"}`}</span>
         <strong>{composite.title}</strong>
-        <ul aria-label="Color and infrared wavelength">
+        {!singleBand && <ul aria-label="Color and infrared wavelength">
           {composite.bands.map((band) => (
             <li key={band.color} className={`wavelength-${band.color.toLowerCase()}`}>
               {band.color} <span>{band.wavelength_um.toFixed(3)} μm</span>
             </li>
           ))}
-        </ul>
+        </ul>}
         <p>
-          Three All-Sky Cube bands, with brightness scaled for display.
-          {composite.coverage_fraction < 1 && ` Shared coverage ${(composite.coverage_fraction * 100).toFixed(1)}%. Gaps are transparent.`}
+          {singleBand ? "Measured brightness in one infrared band. This band covers parts of the core missing from the color composite." : "Three All-Sky Cube bands, with brightness scaled for display."}
+          {composite.coverage_fraction < 1 && ` Measured coverage ${(composite.coverage_fraction * 100).toFixed(1)}%.`}
+          {!simulation && composite.coverage_fraction < 1 && " Gaps are transparent."}
         </p>
+        <label className="simulation-toggle">
+          <input type="checkbox" checked={showSimulation} onChange={(event) => setShowSimulation(event.target.checked)} />
+          Simulated completion
+        </label>
+        {simulation && <p className="simulation-note">Amber hatching marks estimates. <DisplayMethodLink kind="simulation" /></p>}
+        {isOrion && <button type="button" className="orion-band-toggle" onClick={() => setShowOrionCore((value) => !value)}>
+          {singleBand ? "Return to false color" : "View Orion at 4.005 μm"}
+        </button>}
         {!explorer && <Link href={`/explorer?target=${field}&view=exposure`}>Explore individual exposures <span aria-hidden="true">↗</span></Link>}
         <div className="home-composite-sources">
           <DisplayMethodLink kind="composites" />
@@ -60,19 +83,27 @@ export function ImageryMethods() {
         <h2>False-color sky composites</h2>
         <p>Each view uses the same three SPHEREx DR1 All-Sky Cube bands. Red shows 3.293 μm, green 2.189 μm and blue 1.254 μm. We reproject to a north-up tangent plane at 12.9 arcseconds per pixel, using the nearest native pixel with a finite brightness and positive coverage in all three bands. Where tiles overlap, we choose the tile with the highest minimum contribution count across the bands.</p>
         <p>Each band is clipped and scaled between its 5th and 99.85th percentiles, then combined using the Lupton asinh stretch (stretch 0.16, Q 9). Transparent pixels mark missing coverage. Colors show the assigned infrared bands. Use the original FITS data for brightness measurements or wavelength ratios.</p>
+        <p>Orion’s optional 4.005 μm view uses a single measured plane from the same cubes, on the same sky grid. It shows brightness in grayscale and leaves pixels without measurements transparent. <a href="/observations/orion-4005-composite.json">Orion single-band processing record (JSON)</a></p>
         <ul className="method-source-list" aria-label="Field processing records">
           {Object.entries(composites).map(([field, composite]) => composite && (
             <li key={field}><a href={`/observations/${composite.image.replace(/\.webp$/, ".json")}`}>{composite.title} processing record (JSON)</a></li>
           ))}
         </ul>
       </article>
+      <article className="method-step" id="display-simulation">
+        <h2>Simulated completion</h2>
+        <p>This optional view estimates missing display pixels by averaging neighboring colors inward from the coverage boundary. We then smooth the estimated region with the measured pixels held fixed. Amber hatching identifies every filled pixel. The method can suggest continuity across small gaps. Large gaps and crop edges may contain substantial extrapolation.</p>
+        <p>The output is an illustration derived from display colors. Use the measured views and source FITS files to interpret brightness, wavelengths, and motion. <a href="/observations/simulation.json">Simulation processing record (JSON)</a></p>
+      </article>
       <article className="method-step" id="display-previews">
         <h2>Individual exposure previews</h2>
-        <p>We render a preview on request for each archive exposure. We keep its FITS cutout on the native pixel grid, clip its finite brightness values at the 1st and 99.5th percentiles, and apply an inverse hyperbolic sine (asinh) stretch with strength 10. Linear contrast uses a linear brightness mapping between the 1st and 90th percentiles so bright peaks leave more room for fainter detail. Values beyond those limits are clipped. Nearest-neighbor enlargement keeps the original pixel boundaries in both views. Nonfinite pixels appear black. Finite flagged pixels may still be shown. Each exposure has its own grayscale scale, so equal shades across exposures can represent different brightness.</p>
+        <p>Live and saved previews use the native FITS pixel grid. Enhanced grayscale clips finite brightness values at the 1st and 99.5th percentiles and applies an inverse hyperbolic sine (asinh) stretch with strength 10. Linear contrast maps values linearly between the 1st and 90th percentiles so bright peaks leave more room for fainter detail. Values beyond those limits are clipped. Nearest-neighbor enlargement keeps the original pixel boundaries in both views. Nonfinite pixels appear black. Finite flagged pixels may still be shown. Each exposure has its own grayscale scale, so equal shades across exposures can represent different brightness.</p>
+        <p><a href="/observations/saved-exposures/manifest.json">Saved Andromeda, Orion and Pleiades records (JSON)</a> · <a href="/observations/barnard/saved-exposures.json">Saved Barnard’s Star records (JSON)</a></p>
       </article>
       <article className="method-step" id="display-comparisons">
         <h2>Aligned comparisons</h2>
         <p>We bilinearly align the exposures to the first image’s celestial grid and keep the pixels with valid brightness, variance and quality flags in both. From those pixels, we pool both frames to compute the 1st and 99.5th percentile limits and apply the same asinh stretch (strength 10) to both. Blue marks excluded pixels. A brightness-change measurement still requires wavelength matching and uncertainty analysis.</p>
+        <p>Enhanced color maps that same stretched grayscale to the same teal-to-amber brightness palette in both exposures. Excluded pixels stay blue. The color represents display intensity, and each pixel stays on the same grid.</p>
         <p><a href="/observations/barnard/processing.json">Barnard’s Star comparison processing record (JSON)</a></p>
       </article>
       <article className="method-step" id="display-comet">

@@ -47,6 +47,9 @@ CUTOUT_CACHE_TTL_SECONDS = 120
 _cutout_cache: OrderedDict[str, tuple[float, bytes]] = OrderedDict()
 _cutout_cache_lock = Lock()
 _preview_cache: OrderedDict[tuple[str, str, float, str], tuple[float, bytes, str]] = OrderedDict()
+ARCHIVE_CACHE_TTL_SECONDS = 300
+_archive_cache: dict[str, tuple[float, list[dict[str, str]]]] = {}
+_archive_cache_lock = Lock()
 
 
 class TargetModel(BaseModel):
@@ -119,6 +122,11 @@ def _archive_rows(target: dict[str, Any]) -> tuple[list[dict[str, str]], dict[st
         **SIA_PARAMETERS,
         "POS": f"CIRCLE {target['ra_deg']:.6f} {target['dec_deg']:.6f} 0.01",
     }
+    target_id = target["id"]
+    with _archive_cache_lock:
+        cached = _archive_cache.get(target_id)
+        if cached is not None and cached[0] > monotonic():
+            return cached[1], parameters
     encoded = urllib.parse.urlencode(parameters).encode()
     try:
         payload, _ = _fetch(IRSA_SIA, encoded)
@@ -134,6 +142,8 @@ def _archive_rows(target: dict[str, Any]) -> tuple[list[dict[str, str]], dict[st
             if extra:
                 row["_extra_values"] = extra
             rows.append(row)
+        with _archive_cache_lock:
+            _archive_cache[target_id] = (monotonic() + ARCHIVE_CACHE_TTL_SECONDS, rows)
         return rows, parameters
     except (UnicodeDecodeError, csv.Error, ValueError) as error:
         raise HTTPException(502, "IRSA returned invalid SIA CSV") from error
@@ -282,7 +292,7 @@ def _download_cutout(source_url: str, target_info: dict[str, Any], size: float) 
         try:
             payload, _ = _fetch(cutout_url)
         except urllib.error.HTTPError as error:
-            if error.code != 503:
+            if error.code not in (502, 503, 504):
                 raise
             retry_after = (error.headers or {}).get("Retry-After", "1")
             # Do not make the caller wait for a long outage or ignore a longer server hint.

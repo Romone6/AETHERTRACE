@@ -401,6 +401,15 @@
 .blink-panel h3, .original-observations h3 { margin: 0; font: 400 23px var(--serif); }
 .original-observations { margin-top: 23px; }
 .blink-stage img { height: clamp(240px, 45vw, 470px); }
+.blink-panel .blink-color-key {
+  display: grid;
+  grid-template-columns: auto minmax(20px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  max-width: 420px;
+  font-size: 12px;
+}
+.blink-color-key [aria-hidden] { height: 8px; border-radius: 4px; }
 .observation-actions button { min-height: 40px; }
 .worked-example { background: #eef3fb; border-color: #d0dcea; }
 .worked-example summary { display: flex; align-items: center; gap: 13px; list-style: none; }
@@ -521,6 +530,7 @@
   cursor: pointer;
 }
 .home-image-toggle:hover { background: #eaf1fb; }
+.home-image-toggle:disabled { background: #f4f6fa; color: #55647a; cursor: default; }
 
 .deck-viewer .playback-controls { margin-top: 12px; }
 .deck-viewer .deck-stage { margin-top: 12px; }
@@ -691,6 +701,12 @@
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+@media (min-width: 721px) {
+  .context-saved-action {
+    align-self: center;
+    margin-top: 6px;
+  }
 }
 .page-method .method-steps { padding-inline: clamp(0px, 2.5vw, 24px); }
 .page-method .method-step { padding-block: clamp(19px, 3vw, 31px); }
@@ -885,3 +901,46 @@
 .comet-display-options summary { cursor: pointer; color: var(--navy); font-weight: 600; }
 .comet-display-options .explorer-image-modes { margin-top: 10px; }
 .comet-hubble figcaption > span { display: block; color: var(--navy); font-weight: 600; }
+
+.orion-band-toggle {
+  width: fit-content;
+  min-height: 44px;
+  margin: 0 0 4px;
+  padding: 0 10px;
+  border: 1px solid #8297b8;
+  border-radius: 5px;
+  background: #1c304f;
+  color: #fff;
+  font: 600 13px var(--sans);
+  cursor: pointer;
+}
+.orion-band-toggle:hover { background: #294467; }
+.orion-band-toggle:focus-visible { outline-color: #bdcfff; }
+.home-composite-caption > .orion-band-toggle + a {
+  display: block;
+  width: fit-content;
+  margin-top: 4px;
+}
+
+.composite-image-stack { position: relative; width: 100%; }
+.home-composite .home-composite-plate img.simulation-mask,
+.comet-image img.simulation-mask {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.simulation-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  min-height: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.simulation-toggle input { accent-color: var(--blue); }
+.home-composite-caption .simulation-note { color: #ffcf8f; }
+.comet-controls .simulation-note { color: #624319; }

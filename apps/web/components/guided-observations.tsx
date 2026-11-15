@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import comet from "../public/observations/comet/processing.json";
 import laterCometPass from "../public/observations/comet/later/processing.json";
 import barnard from "../public/observations/barnard/processing.json";
 import { ShareLink } from "./share-link";
+import { getSimulatedDisplay } from "./simulated-views";
 import { DisplayMethodLink } from "./sky-composites";
 
 const dateTime = new Intl.DateTimeFormat("en", {
@@ -18,21 +19,87 @@ export function observationDate(value: string) {
 
 type BlinkFrame = { image: string; date: string };
 
+const brightnessPalette = comet.enhanced_display.palette_stops;
+const brightnessRamp = `linear-gradient(90deg, ${brightnessPalette.map(({ color, level }) => `${color} ${(level / 255) * 100}%`).join(", ")})`;
+const brightnessColors = Array.from({ length: 256 }, (_, level) => {
+  const right = Math.max(1, brightnessPalette.findIndex((stop) => stop.level >= level));
+  const lower = brightnessPalette[right - 1];
+  const upper = brightnessPalette[right];
+  const fraction = (level - lower.level) / (upper.level - lower.level);
+  return [1, 3, 5].map((offset) => {
+    const start = Number.parseInt(lower.color.slice(offset, offset + 2), 16);
+    const end = Number.parseInt(upper.color.slice(offset, offset + 2), 16);
+    return Math.round(start + fraction * (end - start));
+  });
+});
+
+function colorizeBlink(image: HTMLImageElement) {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d");
+  if (!context || !canvas.width || !canvas.height) return;
+  context.drawImage(image, 0, 0);
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+  for (let offset = 0; offset < pixels.data.length; offset += 4) {
+    const level = pixels.data[offset];
+    // Only the grayscale pixels carry brightness. The blue mask keeps its exact color.
+    if (level !== pixels.data[offset + 1] || level !== pixels.data[offset + 2]) continue;
+    pixels.data.set(brightnessColors[level], offset);
+  }
+  context.putImageData(pixels, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
 export function Blink({ frames }: { frames: [BlinkFrame, BlinkFrame] }) {
   const [index, setIndex] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [failed, setFailed] = useState(false);
+  const [showColor, setShowColor] = useState(false);
+  const [colorFrames, setColorFrames] = useState<string[] | null>(null);
+  const [preparingColor, setPreparingColor] = useState(false);
+  const [colorUnavailable, setColorUnavailable] = useState(false);
+  const imageElements = useRef<(HTMLImageElement | null)[]>([]);
+  const colorActive = showColor && colorFrames !== null;
+
+  async function showEnhancedColor() {
+    if (colorFrames) {
+      setShowColor(true);
+      return;
+    }
+    setPreparingColor(true);
+    setColorUnavailable(false);
+    try {
+      const colored = await Promise.all(imageElements.current.map(async (image) => {
+        if (!image) return;
+        await image.decode();
+        return colorizeBlink(image);
+      }));
+      if (!colored[0] || !colored[1]) throw new Error("Could not colorize both aligned frames.");
+      setColorFrames([colored[0], colored[1]]);
+      setShowColor(true);
+    } catch {
+      setColorUnavailable(true);
+    } finally {
+      setPreparingColor(false);
+    }
+  }
   return (
     <section aria-label="Blink comparison" className="blink-panel">
       <h3>Blink comparison</h3>
-      <p>Both images use one sky grid and a shared grayscale asinh stretch. <DisplayMethodLink kind="comparisons" /></p>
+      <p>Both exposures use one sky grid and the same brightness scale. <DisplayMethodLink kind="comparisons" /></p>
+      <div className="explorer-image-modes exposure-stretch" role="group" aria-label="Aligned display">
+        <button type="button" aria-pressed={!colorActive} disabled={preparingColor} onClick={() => setShowColor(false)}>Shared grayscale</button>
+        <button type="button" aria-pressed={colorActive} disabled={preparingColor || failed} onClick={() => void showEnhancedColor()}>Enhanced color</button>
+      </div>
       <div className="blink-stage comparison-image">
         {frames.map((frame, i) => (
           <img
             key={i}
             className={i === index ? "blink-active" : "blink-hidden"}
             aria-hidden={i !== index}
-            src={frame.image}
+            ref={(element) => { imageElements.current[i] = element; }}
+            src={colorActive ? colorFrames[i] : frame.image}
             alt={`Observation ${i === 0 ? "A" : "B"}, ${observationDate(frame.date)}`}
             style={{ transform: `scale(${zoom})` }}
             onError={() => setFailed(true)}
@@ -40,6 +107,8 @@ export function Blink({ frames }: { frames: [BlinkFrame, BlinkFrame] }) {
         ))}
       </div>
       {failed && <p role="status">An aligned preview could not be displayed.</p>}
+      {colorUnavailable && <p role="status">Enhanced color is unavailable. Shared grayscale is selected.</p>}
+      {colorActive && <p className="blink-color-key"><span>Lower brightness</span><span aria-hidden="true" style={{ background: brightnessRamp }} /><span>Higher brightness</span></p>}
       <p className="mask-legend"><span aria-hidden="true" /> Blue pixels are excluded from the shared comparison.</p>
       <dl className="blink-dates">
         {frames.map((frame, i) => (
@@ -88,12 +157,13 @@ function elapsedSinceFirst(date: string) {
   return `+${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-export function CometWalkthrough({ initialFrame, initialMarker = true, initialCoverage = false, initialEnhanced = true, initialSmooth = true, standalone = false }: {
+export function CometWalkthrough({ initialFrame, initialMarker = true, initialCoverage = false, initialEnhanced = true, initialSmooth = true, initialSimulation = false, standalone = false }: {
   initialFrame?: string;
   initialMarker?: boolean;
   initialCoverage?: boolean;
   initialEnhanced?: boolean;
   initialSmooth?: boolean;
+  initialSimulation?: boolean;
   standalone?: boolean;
 }) {
   const [index, setIndex] = useState(() => Math.max(0, cometExposures.findIndex(({ frame }) => frame.id === initialFrame)));
@@ -102,16 +172,19 @@ export function CometWalkthrough({ initialFrame, initialMarker = true, initialCo
   const [enhanced, setEnhanced] = useState(initialEnhanced);
   const [playing, setPlaying] = useState(false);
   const [smooth, setSmooth] = useState(initialSmooth);
-  const smoothActive = enhanced && smooth;
+  const [showSimulation, setShowSimulation] = useState(initialSimulation);
+  const colorActive = showSimulation || enhanced;
+  const smoothActive = showSimulation || (enhanced && smooth);
   const imageKey = smoothActive ? "smooth_image" : enhanced ? "enhanced_image" : "image";
   const { frame, passIndex, passFrame } = cometExposures[index];
   const pass = cometPasses[passIndex];
+  const simulation = showSimulation ? getSimulatedDisplay(frame.smooth_image) : undefined;
   const isNewPass = passIndex > 0 && passFrame === 0;
-  const [low, high] = enhanced ? pass.enhanced_display.shared_limits_mjy_sr : pass.scale;
-  const colorRamp = enhanced
+  const [low, high] = colorActive ? pass.enhanced_display.shared_limits_mjy_sr : pass.scale;
+  const colorRamp = colorActive
     ? `linear-gradient(90deg, ${pass.enhanced_display.palette_stops.map(({ color, level }) => `${color} ${(level / 255) * 100}%`).join(", ")})`
     : undefined;
-  const shareParams = new URLSearchParams({ frame: frame.id, positions: showMarker ? "1" : "0", coverage: showCoverage ? "1" : "0", display: enhanced ? "enhanced" : "standard", sampling: smooth ? "smooth" : "pixels" });
+  const shareParams = new URLSearchParams({ frame: frame.id, positions: showMarker ? "1" : "0", coverage: showCoverage ? "1" : "0", display: enhanced ? "enhanced" : "standard", sampling: smooth ? "smooth" : "pixels", simulation: showSimulation ? "1" : "0" });
   const title = "Follow interstellar comet 3I/ATLAS";
   const cutout = new URL(frame.source);
   cutout.searchParams.set("center", pass.cutout_center);
@@ -121,11 +194,12 @@ export function CometWalkthrough({ initialFrame, initialMarker = true, initialCo
     const nextIndex = (index + 1) % cometExposures.length;
     const next = cometExposures[nextIndex].frame;
     const image = new Image();
-    image.src = next[imageKey];
+    const nextSimulation = showSimulation ? getSimulatedDisplay(next.smooth_image) : undefined;
+    image.src = nextSimulation ? `/${nextSimulation.completion}` : next[imageKey];
     if (!playing) return;
     const timer = window.setTimeout(() => setIndex(nextIndex), isNewPass ? 2400 : 1400);
     return () => window.clearTimeout(timer);
-  }, [index, imageKey, playing, isNewPass]);
+  }, [index, imageKey, playing, isNewPass, showSimulation]);
 
   function freezeFrame(next: number) {
     setPlaying(false);
@@ -146,13 +220,14 @@ export function CometWalkthrough({ initialFrame, initialMarker = true, initialCo
         <div className="comet-viewer">
           <div className="comet-stage-meta">
             <span>SPHEREx D6 · <time dateTime={frame.date}>{frame.date.slice(11, 19)} UTC</time> · 14 Dec 2025</span>
-            <span>{enhanced ? "Color by infrared brightness" : "Grayscale infrared brightness"}</span>
+            <span>{simulation ? "Simulated completion" : enhanced ? "Color by infrared brightness" : "Grayscale infrared brightness"}</span>
           </div>
           <div className="comparison-image comet-stage">
-            {isNewPass && <span className="comet-pass-break">Second pass · 1 h 33 min later</span>}
+            {isNewPass && <span className="comet-pass-break">Second pass · 1 h 33 min after the previous frame</span>}
             <div className="comet-image">
-              <img src={frame[imageKey]} alt="SPHEREx infrared cutout of the 3I/ATLAS field" />
-              {showCoverage && <img className="comet-coverage" src={(smoothActive ? pass.smooth_display.coverage_overlay : pass.coverage_overlay).image} alt="" />}
+              <img src={simulation ? `/${simulation.completion}` : frame[imageKey]} alt={simulation ? "Simulated completion of the 3I/ATLAS field. Amber hatching marks estimates." : "SPHEREx infrared cutout of the 3I/ATLAS field"} />
+              {simulation && <img className="simulation-mask" src={`/${simulation.mask}`} alt="" />}
+              {!simulation && showCoverage && <img className="comet-coverage" src={(smoothActive ? pass.smooth_display.coverage_overlay : pass.coverage_overlay).image} alt="" />}
               {showMarker && pass.frames.slice(0, passFrame).map((past) => (
                 <span aria-hidden="true" key={past.id} className="comet-past-position" style={{ left: `${past.marker[0] * 100}%`, top: `${past.marker[1] * 100}%` }} />
               ))}
@@ -183,26 +258,31 @@ export function CometWalkthrough({ initialFrame, initialMarker = true, initialCo
         </div>
         <div className="comet-controls">
           <p className="comet-epoch" aria-live={playing ? "off" : "polite"}>Frame {index + 1} of {cometExposures.length} · {frame.date.slice(11, 19)} UTC · {elapsedSinceFirst(frame.date)} elapsed</p>
+          <label className="simulation-toggle">
+            <input type="checkbox" checked={showSimulation} onChange={(event) => setShowSimulation(event.target.checked)} />
+            Simulated completion
+          </label>
+          {simulation && <p className="simulation-note">Amber hatching marks estimates on the smooth color view. <DisplayMethodLink kind="simulation" /></p>}
           <details className="comet-display-options">
             <summary>Display and tracking options</summary>
             <div className="explorer-image-modes" role="group" aria-label="Comet display">
-              <button type="button" aria-pressed={enhanced} onClick={() => setEnhanced(true)}>Enhanced</button>
-              <button type="button" aria-pressed={!enhanced} onClick={() => setEnhanced(false)}>Standard</button>
+              <button type="button" aria-pressed={enhanced} disabled={showSimulation} onClick={() => setEnhanced(true)}>Enhanced</button>
+              <button type="button" aria-pressed={!enhanced} disabled={showSimulation} onClick={() => setEnhanced(false)}>Standard</button>
             </div>
             <div className="comet-overlays">
-              {enhanced && <label><input type="checkbox" checked={smooth} onChange={(event) => setSmooth(event.target.checked)} /> Smooth display</label>}
+              {enhanced && <label><input type="checkbox" checked={smooth} disabled={showSimulation} onChange={(event) => setSmooth(event.target.checked)} /> Smooth display</label>}
               <label><input type="checkbox" checked={showMarker} onChange={(event) => setShowMarker(event.target.checked)} /> Show predicted positions</label>
-              <label><input type="checkbox" checked={showCoverage} onChange={(event) => setShowCoverage(event.target.checked)} /> Show coverage gaps</label>
+              <label><input type="checkbox" checked={showCoverage} disabled={showSimulation} onChange={(event) => setShowCoverage(event.target.checked)} /> Show coverage gaps</label>
             </div>
             {showMarker && <p><span className="comet-marker-key" aria-hidden="true" /> Crosshair shows the current predicted position. Dots show earlier predictions in this pass.</p>}
-            {showCoverage && <p className="mask-legend"><span aria-hidden="true" /> Blue marks shared coverage gaps. {smoothActive ? "The finer grid also excludes samples without finite support in every exposure." : `${pass.common_pixels.toLocaleString("en")} of ${pass.total_pixels.toLocaleString("en")} pixels have finite data in all three frames.`}</p>}
+            {!simulation && showCoverage && <p className="mask-legend"><span aria-hidden="true" /> Blue marks shared coverage gaps. {smoothActive ? "The finer grid also excludes samples without finite support in every exposure." : `${pass.common_pixels.toLocaleString("en")} of ${pass.total_pixels.toLocaleString("en")} pixels have finite data in all three frames.`}</p>}
           </details>
           <div className="comet-scale">
-            <span>D6 · {enhanced ? "Color by brightness" : "Standard grayscale"} · Shared scale</span>
+            <span>D6 · {simulation ? "Source scale for measured pixels" : colorActive ? "Color by brightness · Shared scale" : "Standard grayscale · Shared scale"}</span>
             <div aria-hidden="true" className="comet-scale-ramp" style={{ background: colorRamp }} />
             <span>{low.toFixed(2)}–{high.toFixed(2)} MJy/sr display limits</span>
           </div>
-          {smoothActive && <p className="comet-sampling">656 × 656 display · resampled from the detector data.</p>}
+          {smoothActive && !simulation && <p className="comet-sampling">656 × 656 display · resampled from the detector data.</p>}
           <p>The archive flags the predicted center as an outlier in this exposure.</p>
           <ShareLink key={shareParams.toString()} href={`/comet?${shareParams}`} label="Link to this exposure" />
           <details className="comet-provenance">

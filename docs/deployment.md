@@ -1,12 +1,12 @@
-# Local-first deployment
+# AETHERTRACE deployment
 
 ## Current boundary
 
-The FastAPI service and Next.js frontend run locally. The live archive serves SPHEREx DR1 metadata and FITS previews. The bundled demo includes four false-color fields, a six-frame 3I/ATLAS replay, the Hubble reference image, and a saved Barnard’s Star comparison. The previews support visual browsing. Scientific brightness and variability measurements require further validation. A public demo URL is pending.
+The FastAPI service and Next.js frontend are live at [aethertrace.vercel.app](https://aethertrace.vercel.app/) and can also run locally. The live archive serves SPHEREx DR1 metadata and FITS previews. The bundled demo includes four false-color fields, a six-frame 3I/ATLAS replay, the Hubble reference image, and a saved Barnard’s Star comparison. The previews support visual browsing. Scientific brightness and variability measurements require further validation.
 
 The UI uses a fixed ICRS coordinate. Barnard's Star proper motion has not been applied, so the displayed cutouts are not verified as centered on the star at every epoch. Do not describe them as a verified stellar light curve or discovery.
 
-The [source repository](https://github.com/Romone6/AETHERTRACE) is public. The application runs locally.
+The [source repository](https://github.com/Romone6/AETHERTRACE) is public.
 
 ## Run locally
 
@@ -63,7 +63,7 @@ For a hosted preview, replace the local API origin with the deployed HTTPS origi
 
 - The homepage opens the comet replay. Its six frames play, freeze, and reopen from a copied link. The Explorer observation section loads the credited Hubble reference.
 - `/api/targets` and a live IRSA catalog request succeed. Open a specific archive exposure, verify its image, and download its FITS cutout.
-- A fresh session with archive requests blocked still loads the comet, field composites, and saved Barnard exposures. An outage notice identifies saved records.
+- A fresh session with archive requests blocked still loads the comet, field composites, and saved DR1 exposures for all four sky fields. Exercise the homepage exposure toggle and both Explorer stretches. An outage notice identifies saved records.
 - Run the same checks at a narrow mobile width and confirm the release commit matches the public demo. Add that public link to the README and submission materials.
 
 ### Vercel preview
@@ -76,4 +76,6 @@ cd "$aether_stage"
 npx --yes vercel@latest --yes
 ```
 
-The deployment requires an authenticated Vercel CLI session. The preview routes `/api/*` to FastAPI and other paths to Next.js. After deploying, run the public checks above in a signed-out browser and confirm that the intended audience can open the preview.
+For an account-owned deployment, sign in to the Vercel CLI. The same stage also supports `npx --yes vercel@latest deploy --temporary` in a signed-out session. The temporary workflow builds locally and requires `uv` 0.9.25 or newer for FastAPI. It returns an expiry and a claim link. Claim the deployment before expiry if it will be used for submission.
+
+The preview routes `/api/*` to FastAPI and other paths to Next.js. After deploying, run the public checks above in a signed-out browser and confirm that the intended audience can open the preview.

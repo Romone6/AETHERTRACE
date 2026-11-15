@@ -1,0 +1,65 @@
+{
+  "title": "Orion Nebula",
+  "release": "SPHEREx DR1",
+  "product": "All-Sky Cube",
+  "release_url": "https://www.ipac.caltech.edu/doi/10.26131/IRSA679",
+  "image": "orion-4005-composite.webp",
+  "image_sha256": "7104f8ec36fe036c893cec85a156dc1290e70131a1c3f83cbf93d7a1beffa8d1",
+  "size_px": [
+    376,
+    196
+  ],
+  "center_icrs_deg": [
+    83.822083,
+    -5.31
+  ],
+  "projection": "TAN, north up and east left",
+  "pixel_scale_arcsec": 12.9,
+  "coverage_fraction": 0.998412396873643,
+  "bands": [
+    {
+      "color": "Grayscale",
+      "plane": 74,
+      "detector": 5,
+      "subchannel": 6,
+      "wavelength_um": 4.005,
+      "min_um": 3.985,
+      "max_um": 4.024
+    }
+  ],
+  "sources": [
+    {
+      "product": "Npix5359_cube.fits",
+      "fits_url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/hips5_cube/hips_20261026/Norder5/Dir0/Npix5359_cube.fits",
+      "sha256": "5ae1bb6b8fcd2a4951569d15623a2cca2a34aa469d85eb3ef27b94a2b8d01893",
+      "earliest_input_utc": "2025-09-03T20:33:06.103",
+      "latest_input_utc": "2026-03-23T00:09:45.049"
+    },
+    {
+      "product": "Npix5701_cube.fits",
+      "fits_url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/hips5_cube/hips_20261026/Norder5/Dir0/Npix5701_cube.fits",
+      "sha256": "25ad42cc979a052e3b57bfe5d4ada3cd97f67a8a8769a3a89d96f0902d6e2542",
+      "earliest_input_utc": "2025-09-02T20:04:26.515",
+      "latest_input_utc": "2026-03-18T07:43:54.472"
+    }
+  ],
+  "processing": {
+    "sampling": "Nearest native pixel with finite brightness and positive NHITS. In overlaps prefer the highest NHITS.",
+    "display": "Single measured plane shown in grayscale using a Lupton asinh stretch. No pixels are filled.",
+    "input_units": "MJy/sr",
+    "percentiles": [
+      5,
+      99.85
+    ],
+    "display_levels_by_percentile": [
+      [
+        0.16512677520513536
+      ],
+      [
+        142.35371636962992
+      ]
+    ],
+    "lupton_stretch": 0.16,
+    "lupton_q": 9
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "method": "Display-space RGB gap fill. Average known orthogonal neighbors in successive rings, then relax the estimated pixels with fixed measured boundaries.",
+  "relaxation_passes": 48,
+  "mask": "Amber hatching marks all estimated pixels. Estimates are not calibrated measurements.",
+  "displays": {
+    "observations/orion-composite.webp": {
+      "completion": "observations/simulation/orion-composite-complete.webp",
+      "mask": "observations/simulation/orion-composite-estimated.png",
+      "source_sha256": "ce8f61dd7b0c2a2e66a35bfb49b8aedfc9b728c38d6721c384715aa0d6e02cd3",
+      "completion_sha256": "9f7a642632c1400bd5064f93bef0d8279725ae47ffe99399b3d979b0744dbfca",
+      "mask_sha256": "ae2bcb8b7c2d2f66d6186047140a08f1c3f2820530da8fccdf4ce1bf9f831994",
+      "estimated_pixels": 823,
+      "total_pixels": 73696
+    },
+    "observations/andromeda-composite.webp": {
+      "completion": "observations/simulation/andromeda-composite-complete.webp",
+      "mask": "observations/simulation/andromeda-composite-estimated.png",
+      "source_sha256": "f866eea83d2b78d79258de0fbbf35b880aecfa37137d82d35545ac1ba1dd09a1",
+      "completion_sha256": "56b8d6f0e1e76f5988268dc811084f6137e90128032c653929824b67ac531bdb",
+      "mask_sha256": "d4a53eef643b667e63741e84a580fd0cd659bee2913bf94eda017f02a7831421",
+      "estimated_pixels": 916,
+      "total_pixels": 73696
+    },
+    "observations/pleiades-composite.webp": {
+      "completion": "observations/simulation/pleiades-composite-complete.webp",
+      "mask": "observations/simulation/pleiades-composite-estimated.png",
+      "source_sha256": "6ee26142825f0314067025523ae19f4c60fedd8dc9f736eab55911f831e26beb",
+      "completion_sha256": "876d15899619774b1831d7cdb438e96ad61cb9b96aa08f24bb67e4ea15f4f23e",
+      "mask_sha256": "36784e27a3af4d4fad0f68b34c3efeac3f3454f5b89c4e1656b8ef8a28c06476",
+      "estimated_pixels": 317,
+      "total_pixels": 73696
+    },
+    "observations/barnard-field-composite.webp": {
+      "completion": "observations/simulation/barnard-field-composite-complete.webp",
+      "mask": "observations/simulation/barnard-field-composite-estimated.png",
+      "source_sha256": "02f1934813f7ab087b3c66940568f4bde6393c8f66d76316e38c37683f72f6d4",
+      "completion_sha256": "65f9cd9f6f60972b3ddd6beda08d80c4029c1feb19b7f223eb4988fcb5cf9873",
+      "mask_sha256": "d23e6d654067be9e5e55c4843dd6c4477f96d99bd0854e7dc1f7395b8288d7fd",
+      "estimated_pixels": 1047,
+      "total_pixels": 73696
+    },
+    "observations/orion-4005-composite.webp": {
+      "completion": "observations/simulation/orion-4005-composite-complete.webp",
+      "mask": "observations/simulation/orion-4005-composite-estimated.png",
+      "source_sha256": "7104f8ec36fe036c893cec85a156dc1290e70131a1c3f83cbf93d7a1beffa8d1",
+      "completion_sha256": "6af3bd3c0b1ff5226db5c580faaa1eabb754adc42b7d3a4a6e8e9df5c312e1f1",
+      "mask_sha256": "506dd21df8a1c173b7c0e7c2f8eec6e9133a89363f4963266355131f15ef5cb8",
+      "estimated_pixels": 117,
+      "total_pixels": 73696
+    },
+    "observations/comet/2025W50_2A_0797_1-smooth.png": {
+      "completion": "observations/simulation/2025W50_2A_0797_1-smooth-complete.webp",
+      "mask": "observations/simulation/2025W50_2A_0797_1-smooth-estimated.png",
+      "source_sha256": "2c004990f9c15c33a549ab6c7614751ea8fc32488197b0c3875860dea8be6fb7",
+      "completion_sha256": "418df149fdac857401ea80409b9bfa93e40828588b778fb93d5141ed2a5cd9c0",
+      "mask_sha256": "dcccc0222605bb9791b9be9fc0d85c0407f32f9d9562bcd4fdb63268c81a9c09",
+      "estimated_pixels": 29531,
+      "total_pixels": 430336,
+      "coverage": "observations/comet/coverage-smooth.png"
+    },
+    "observations/comet/2025W50_2A_0797_2-smooth.png": {
+      "completion": "observations/simulation/2025W50_2A_0797_2-smooth-complete.webp",
+      "mask": "observations/simulation/2025W50_2A_0797_2-smooth-estimated.png",
+      "source_sha256": "c9f7111ef78e2c4d715bce2395c5a0971a7da36b84bfa1e7606d2f8cdd1a9e8a",
+      "completion_sha256": "2370badd7d16e635941d4973a299e8bf4dabd7fbebd75c227ace3f8637795694",
+      "mask_sha256": "dcccc0222605bb9791b9be9fc0d85c0407f32f9d9562bcd4fdb63268c81a9c09",
+      "estimated_pixels": 29531,
+      "total_pixels": 430336,
+      "coverage": "observations/comet/coverage-smooth.png"
+    },
+    "observations/comet/2025W50_2A_0797_4-smooth.png": {
+      "completion": "observations/simulation/2025W50_2A_0797_4-smooth-complete.webp",
+      "mask": "observations/simulation/2025W50_2A_0797_4-smooth-estimated.png",
+      "source_sha256": "e175368f4b4f4af55a086a352fdb9271b2acd947a39ee42544c2bba17fdb7bcb",
+      "completion_sha256": "637df3210779c2fc12cd469dc614d67840fc13b86c00f0a243ee5e592b25e088",
+      "mask_sha256": "dcccc0222605bb9791b9be9fc0d85c0407f32f9d9562bcd4fdb63268c81a9c09",
+      "estimated_pixels": 29531,
+      "total_pixels": 430336,
+      "coverage": "observations/comet/coverage-smooth.png"
+    },
+    "observations/comet/later/2025W50_2A_0813_1-smooth.png": {
+      "completion": "observations/simulation/2025W50_2A_0813_1-smooth-complete.webp",
+      "mask": "observations/simulation/2025W50_2A_0813_1-smooth-estimated.png",
+      "source_sha256": "6421d229a5e173e60a1f2e3e043480e73a0b70c26ba7909f3bee1faf3570c598",
+      "completion_sha256": "5cfc053b59a3ade91e50a024602660ef9a0333eb5e4e99066b9c0d9689ff7473",
+      "mask_sha256": "a2bd2a5338786b32824965591633c7879c8c27ca8ec2a0a618f50d8488e43804",
+      "estimated_pixels": 31535,
+      "total_pixels": 430336,
+      "coverage": "observations/comet/later/coverage-smooth.png"
+    },
+    "observations/comet/later/2025W50_2A_0813_2-smooth.png": {
+      "completion": "observations/simulation/2025W50_2A_0813_2-smooth-complete.webp",
+      "mask": "observations/simulation/2025W50_2A_0813_2-smooth-estimated.png",
+      "source_sha256": "452a0d7f154f84fbc35dd5dea066dc8e1694c486478b16628d81a82a3ba490fe",
+      "completion_sha256": "922e9b77cbaf94a1abba34aaa61d1925f61ff9ce3f5e3ddcf683152af4d1c4aa",
+      "mask_sha256": "a2bd2a5338786b32824965591633c7879c8c27ca8ec2a0a618f50d8488e43804",
+      "estimated_pixels": 31535,
+      "total_pixels": 430336,
+      "coverage": "observations/comet/later/coverage-smooth.png"
+    },
+    "observations/comet/later/2025W50_2A_0813_4-smooth.png": {
+      "completion": "observations/simulation/2025W50_2A_0813_4-smooth-complete.webp",
+      "mask": "observations/simulation/2025W50_2A_0813_4-smooth-estimated.png",
+      "source_sha256": "3241a9ed90df167ae86cd2e064c56953676ce347f884b1dd03f70cd978e08b84",
+      "completion_sha256": "e21be50ad398f7558d0be9062819cd2427068139c1496186960ef1e0af7e6663",
+      "mask_sha256": "a2bd2a5338786b32824965591633c7879c8c27ca8ec2a0a618f50d8488e43804",
+      "estimated_pixels": 31535,
+      "total_pixels": 430336,
+      "coverage": "observations/comet/later/coverage-smooth.png"
+    }
+  }
+}

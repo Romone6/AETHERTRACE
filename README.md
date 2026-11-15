@@ -1,6 +1,8 @@
 # AETHERTRACE
 
-A public-facing SPHEREx observation explorer built for the NASA Space Apps **Planet X and SPHEREx** challenge. Step through calibrated source exposures with a shared display scale, inspect what the archive flags, and trace each preview back to its source.
+A SPHEREx observation explorer built for the NASA Space Apps **Planet X and SPHEREx** challenge. Step through infrared exposures, inspect archive quality flags, and trace each preview back to its source.
+
+[Open the public AETHERTRACE demo](https://aethertrace.vercel.app/)
 
 ![Six SPHEREx exposures in the 3I/ATLAS timeline, followed by the Hubble close-up](docs/media/comet-demo.gif)
 
@@ -24,7 +26,7 @@ npm --prefix apps/web ci
 AETHERTRACE_API_URL=http://127.0.0.1:8000 npm --prefix apps/web run dev
 ```
 
-Open [Aethertrace](http://localhost:3000/). To try the saved demo, stop the API and open the site in a fresh browser session. The comet sequence and four field composites still load. Use **Open saved exposures** from Archive when available, or choose **Barnard’s Star** to inspect the two saved DR1 exposures.
+Open [Aethertrace](http://localhost:3000/). To try the saved demo, stop the API and open the site in a fresh browser session. The comet sequence, field composites, and five saved DR1 exposures still load. Choose **Show a single exposure** on the homepage or **Individual exposures** in Explorer. Barnard’s Star has two saved exposures. Andromeda, Orion, and the Pleiades have one each.
 
 ## How FITS becomes a preview
 
@@ -44,7 +46,7 @@ To rebuild either comet pass, download its three FITS cutouts linked under **Sou
 PYTHONPATH=. .venv/bin/python scripts/render_comet_sequence.py path/to/first.fits path/to/second.fits path/to/third.fits
 ```
 
-Render settings, source links, and checksums are recorded in the [first pass manifest](apps/web/public/observations/comet/processing.json), [second pass manifest](apps/web/public/observations/comet/later/processing.json), and [Barnard manifest](apps/web/public/observations/barnard/processing.json). The [observation audit](docs/observation-audit.md) explains the cutout request, resampling, quality flags, and scientific limits.
+Render settings, source links, and checksums are recorded in the [first pass manifest](apps/web/public/observations/comet/processing.json), [second pass manifest](apps/web/public/observations/comet/later/processing.json), [Barnard manifest](apps/web/public/observations/barnard/processing.json), and [saved sky-field manifest](apps/web/public/observations/saved-exposures/manifest.json). The [observation audit](docs/observation-audit.md) explains the cutout request, resampling, quality flags, and scientific limits.
 
 ## Current status
 
@@ -52,7 +54,7 @@ Render settings, source links, and checksums are recorded in the [first pass man
 - The Next.js interface displays time-ordered cutout previews within a selected detector channel. The cutout center uses a fixed coordinate; Barnard's Star proper motion has not been applied, so the displayed cutouts are not verified as centered on the star.
 - The API preserves unique product IDs, exposure intervals, wavelength bounds, channel, and source-row provenance. Comparisons remain `INSUFFICIENT_DATA`; no variability result is claimed. See [query evidence](docs/science-query-evidence.md) and [scientific feasibility](docs/scientific-feasibility.md).
 - The Evidence page provides aligned blink previews alongside native-grid cutouts, FITS quality counts, source links, and the limits of visual comparison.
-- Source code is available in the public [GitHub repository](https://github.com/Romone6/AETHERTRACE). The demo runs locally.
+- Source code is available in the public [GitHub repository](https://github.com/Romone6/AETHERTRACE). The demo is live on [Vercel](https://aethertrace.vercel.app/).
 
 ## Developer reference
 

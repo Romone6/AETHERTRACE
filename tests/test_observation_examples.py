@@ -12,6 +12,45 @@ from PIL import Image
 WEB = Path(__file__).parents[1] / "apps/web"
 
 
+def test_simulated_showcases_preserve_measured_pixels_and_mark_every_fill():
+    public = WEB / "public"
+    catalog = json.loads((public / "observations/simulation.json").read_text())
+    assert len(catalog["displays"]) == 11
+    for original, assets in catalog["displays"].items():
+        for path, checksum in (
+            (original, "source_sha256"), (assets["completion"], "completion_sha256"), (assets["mask"], "mask_sha256"),
+        ):
+            assert hashlib.sha256((public / path).read_bytes()).hexdigest() == assets[checksum]
+        with Image.open(public / original) as image:
+            rgba = np.asarray(image.convert("RGBA"))
+        if "coverage" in assets:
+            with Image.open(public / assets["coverage"]) as image:
+                missing = np.asarray(image.getchannel("A")) > 0
+        else:
+            missing = rgba[..., 3] == 0
+        with Image.open(public / assets["completion"]) as image:
+            completed = np.asarray(image.convert("RGBA"))
+        with Image.open(public / assets["mask"]) as image:
+            estimated = np.asarray(image.getchannel("A")) > 0
+        assert missing.any() and (~missing).any()
+        assert np.array_equal(estimated, missing)
+        assert np.all(completed[..., 3] == 255)
+        assert np.array_equal(completed[~missing], rgba[~missing])
+        assert np.any(completed[missing, :3] != rgba[missing, :3])
+
+
+def test_orion_supplement_has_measured_coverage_at_the_core():
+    root = WEB / "public/observations"
+    manifest = json.loads((root / "orion-4005-composite.json").read_text())
+    assert [band["wavelength_um"] for band in manifest["bands"]] == [4.005]
+    image_path = root / manifest["image"]
+    assert hashlib.sha256(image_path.read_bytes()).hexdigest() == manifest["image_sha256"]
+    with Image.open(root / "orion-composite.webp") as composite, Image.open(image_path) as supplement:
+        assert composite.size == supplement.size
+        assert np.asarray(composite.getchannel("A"))[120, 188] == 0
+        assert np.asarray(supplement.getchannel("A"))[120, 188] == 255
+
+
 def test_saved_demo_contains_exact_barnard_records_and_native_previews():
     root = WEB / "public/observations/barnard"
     snapshot = json.loads((root / "saved-exposures.json").read_text())
@@ -31,6 +70,25 @@ def test_saved_demo_contains_exact_barnard_records_and_native_previews():
         assert path.read_bytes() != linear_path.read_bytes()
         with Image.open(linear_path) as image:
             assert image.mode == "L" and image.size == shape
+
+
+def test_saved_sky_fields_ship_two_stretches_for_each_verified_archive_record():
+    public = WEB / "public"
+    catalog = json.loads((public / "observations/saved-exposures/manifest.json").read_text())
+    assert set(catalog) == {"andromeda", "orion-nebula", "pleiades"}
+    for entries in catalog.values():
+        (entry,) = entries
+        record = entry["observation"]
+        assert record["release"] == "DR1"
+        assert record["id"] == record["provenance"]["archive_fields"]["obs_publisher_did"]
+        assert urlparse(record["product_url"]).hostname == "irsa.ipac.caltech.edu"
+        assert entry["inspection"]["finite_image_pixels"] > 0
+        for field, checksum in (("preview", "preview_sha256"), ("linear_preview", "linear_sha256")):
+            path = public / entry[field].lstrip("/")
+            assert hashlib.sha256(path.read_bytes()).hexdigest() == entry[checksum]
+            with Image.open(path) as image:
+                assert image.mode == "L"
+                assert image.getextrema()[1] > image.getextrema()[0]
 
 
 def test_comet_coverage_overlay_matches_the_shared_display_footprint():

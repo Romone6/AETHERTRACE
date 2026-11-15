@@ -32,6 +32,7 @@ ROW_B = {**ROW_A, "obs_id": "2026W19_1A_0403_1", "obs_publisher_did": "ivo://irs
 def isolate_cutout_cache(monkeypatch):
     monkeypatch.setattr(api, "_cutout_cache", OrderedDict())
     monkeypatch.setattr(api, "_preview_cache", OrderedDict())
+    monkeypatch.setattr(api, "_archive_cache", {})
 
 
 def test_shared_contract_routes(monkeypatch):
@@ -224,7 +225,8 @@ def test_cutout_uses_dr1_product_url_and_preserves_source_headers(monkeypatch):
     assert "size=0.05" in seen["url"]
 
 
-def test_cutout_retries_once_after_transient_archive_503(monkeypatch):
+@pytest.mark.parametrize("status", [502, 503, 504])
+def test_cutout_retries_once_after_transient_archive_error(monkeypatch, status):
     from urllib.error import HTTPError
 
     requests = []
@@ -232,7 +234,7 @@ def test_cutout_retries_once_after_transient_archive_503(monkeypatch):
     def fake_fetch(url, data=None):
         requests.append(url)
         if len(requests) == 1:
-            raise HTTPError(url, 503, "temporarily unavailable", {"Retry-After": "0"}, BytesIO())
+            raise HTTPError(url, status, "temporarily unavailable", {"Retry-After": "0"}, BytesIO())
         return b"SIMPLE  =" + bytes(2871), {}
 
     monkeypatch.setattr(api, "_archive_rows", lambda _target: ([ROW_A], api.SIA_PARAMETERS))
@@ -243,6 +245,34 @@ def test_cutout_retries_once_after_transient_archive_503(monkeypatch):
     assert response.status_code == 200
     assert len(requests) == 2
     assert requests[0] == requests[1]
+
+
+def test_cutout_reuses_archive_lookup_after_catalog_load(monkeypatch):
+    from urllib.error import HTTPError
+    import csv
+    from io import StringIO
+
+    catalog = StringIO()
+    writer = csv.DictWriter(catalog, fieldnames=list(ROW_A))
+    writer.writeheader()
+    writer.writerow(ROW_A)
+    catalog_requests = []
+
+    def fake_fetch(url, data=None):
+        if url == api.IRSA_SIA:
+            catalog_requests.append(url)
+            if len(catalog_requests) > 1:
+                raise HTTPError(url, 502, "temporarily unavailable", {}, BytesIO())
+            return catalog.getvalue().encode(), {}
+        return b"SIMPLE  =" + bytes(2871), {}
+
+    monkeypatch.setattr(api, "_fetch", fake_fetch)
+    params = {"target": "barnards-star"}
+    assert client.get("/api/observations", params=params).status_code == 200
+    assert client.get("/api/archive/cutout", params={
+        **params, "observation_id": ROW_A["obs_publisher_did"],
+    }).status_code == 200
+    assert len(catalog_requests) == 1
 
 
 def test_cutout_reuses_successful_download_until_expiry(monkeypatch):

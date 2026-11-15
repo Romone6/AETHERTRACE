@@ -1,37 +1,42 @@
-# NASA Space Apps 2026 submission readiness
+# AETHERTRACE production and submission preflight
 
-Checked 2026-11-14. This is an internal preparation record, not a submitted project page. The official [2026 event page](https://www.spaceappschallenge.org/2026/) says the hackathon runs November 14–15, teams may have up to six participants, and eligible Global Judging requires event registration and a project submitted through the Project tab from 9:00 AM on November 14 until 11:59 PM local time on November 15. The [official 2026 challenge list](https://www.spaceappschallenge.org/2026/challenges/) identifies **Planet X and SPHEREx** (Challenge 12). The official [participant terms](https://www.spaceappschallenge.org/legal/) require appropriate license documentation and citation of every source used.
+Reviewed November 15, 2026 for **Planet X and SPHEREx**, Challenge 12. Space Apps accepts submissions from the Project tab on the team's page until **11:59 p.m. local time on November 15**. Confirm the event and submission fields in the signed-in Project tab. [2026 event timeline](https://www.spaceappschallenge.org/2026/) · [2026 challenge list](https://www.spaceappschallenge.org/2026/challenges/)
 
-## Selected challenge: Planet X and SPHEREx
+## Project description
 
-The official challenge statement calls for a **public-facing web tool** that displays images of the sky from the SPHEREx mission and makes it easy for people to see how the images change over time. Its context describes SPHEREx as mapping the whole sky every six months in 102 near-infrared bands, returning images of more than a billion objects; comets, asteroids, stars, brown dwarfs, and possible new planets are examples of objects that may shift between images. These are the challenge's objective and context, not features already implemented here. See the official [2026 challenge list](https://www.spaceappschallenge.org/2026/challenges/) and challenge statement reproduced on Space Apps team pages (for example [LSP'26](https://www.spaceappschallenge.org/2026/find-a-team/lsp26/)).
+AETHERTRACE lets people browse NASA SPHEREx infrared observations through time. Choose a sky field, inspect its false-color composite, and open an individual exposure with its time, detector, wavelength range, and source record. Replay six December 2025 observations of interstellar comet 3I/ATLAS across two passes, follow the predicted positions, and compare the infrared view with a credited July 2025 Hubble image.
 
-## Honest project description
+The Evidence page shows how wavelength differences and quality flags limit what can be inferred from visually aligned Barnard’s Star exposures. The optional simulated completion fills display gaps from their neighboring colors and marks all estimates with amber hatching. The demo supports visual exploration. The original FITS data and further calibration are needed for scientific measurement.
 
-**Working name:** AETHERTRACE
+## Project tab links
 
-**Current state:** A runnable local prototype. FastAPI queries public IRSA SIA for SPHEREx DR1 products and serves FITS cutouts plus display-only PNG previews. A Next.js interface lists the records and scrubs through images in one detector channel at a time. The API response preserves unique product IDs, time intervals, wavelength bounds, channel, source URLs, and original archive metadata. Local API, browser, contract-lint, and production-build checks have passed.
+- **Project name** — AETHERTRACE
+- **Challenge** — Planet X and SPHEREx
+- **Live solution** — [aethertrace.vercel.app](https://aethertrace.vercel.app/)
+- **Demonstration** — [14-second walkthrough](https://raw.githubusercontent.com/Romone6/AETHERTRACE/refs/heads/feat/multipage-aethertrace/docs/media/comet-walkthrough.mp4). The [interactive replay](https://aethertrace.vercel.app/comet) follows the same six exposures.
+- **Source and documentation** — [Audited GitHub branch](https://github.com/Romone6/AETHERTRACE/tree/feat/multipage-aethertrace) · [Public image methods](https://aethertrace.vercel.app/method)
 
-**Data and evidence:** A live DR1 query returned 240 Level-2 records with 240 unique `obs_publisher_did` identifiers, 122 distinct exposure start times, and 42 D3 products. Two D3 FITS cutouts were parsed; the API returned 232×232 PNG previews for both verified epochs. These previews are percentile/asinh display stretches, not calibrated measurements. The target position is fixed and Barnard's Star proper motion has not been applied, so frames are not yet verified as centered on the star. No source photometry, registration, uncertainty propagation, change statistic, detection, comparison result, or scientific discovery is claimed. See [science query evidence](science-query-evidence.md).
+## Release checks
 
-## Submission preflight
+| Check | Result |
+| --- | --- |
+| Build and contract | Next.js production build and clean staged frontend build passed. The local Vercel Services rehearsal reached Next.js pages and FastAPI routes, including a live IRSA catalog query. OpenAPI lint passed. |
+| Exposures | Desktop Chromium opened the single-exposure view and both Explorer stretches for all four fields. It opened an exact archive record and retried a preview after an injected 502. A real FITS download completed for each field. Orion returned an intermittent 502 on an earlier attempt. |
+| Archive unavailable | With all API requests blocked, mobile Chromium displayed the saved exposures for all four fields, both stretches, the measured and simulated field views, saved archive records, and the comet replay. Five actual DR1 exposures are bundled. The saved manifest preserves source IDs and FITS and PNG hashes. |
+| Other flows | All six pages opened. The Barnard example blinked between its epochs, and Evidence supported shared grayscale, enhanced color, and alternative native cutout stretches. The comet replay advanced and froze, a copied link restored the frame and simulation setting, and the Hubble image loaded. An automated axe check found no violations in the tested views. |
+| Dependencies and tests | npm audit reported zero known vulnerabilities. pip-audit flagged Pillow 12.3.0. The backend was upgraded to Pillow 13.0.0 and the repeat scan reported no known vulnerabilities. All 38 Python tests passed. |
 
-- [ ] Record **Planet X and SPHEREx** as the team's challenge in the Space Apps Project Tab and explain the fit. This preparation identifies the matching official statement; team registration/selection was not changed here.
-- [ ] Confirm participant registration, Local Event or Universal Event, team membership (maximum six), and team lead directly on Space Apps. No account was created or changed for this preparation.
-- [x] Build a runnable local demonstration and test it. API tests: 11 passed; OpenAPI lint and Next.js production build pass; the local browser loaded 240 records and a 42-frame D3 sequence.
-- [ ] Write the final project page around features that actually work; distinguish prototype, planned work, and limitations.
-- [ ] Cite NASA/partner data, software, libraries, media, and other sources used; include license documentation for solution materials as required by the participant terms.
-- [ ] Add the [public source repository](https://github.com/Romone6/AETHERTRACE) and the public demo link to the project page. The demo currently runs locally.
-- [ ] Submit through the team's Project tab by the official local-time deadline. Do not treat this document or a Git commit as an event submission.
+## Credits for the project form
 
-## Judging and submission details still to confirm
+- NASA SPHEREx DR1 is a NASA-funded JPL and Caltech project. Cite [DR1 Spectral Images, DOI 10.26131/IRSA678](https://doi.org/10.26131/IRSA678) and the [DR1 Spectral All-Sky Cube, DOI 10.26131/IRSA679](https://doi.org/10.26131/IRSA679). Use the mission acknowledgement from the [IRSA DR1 overview](https://irsa.ipac.caltech.edu/data/SPHEREx/docs/overview_dr1.html). The comet track uses predicted positions from the [IRSA 3I/ATLAS archive](https://irsa.ipac.caltech.edu/data/SPHEREx/docs/comet3iatlas/index.html).
+- The Barnard’s Star example uses [ESA Gaia DR3](https://gea.esac.esa.int/archive/) source 4472832130942575872. The [worked example record](../apps/web/public/observations/barnard/processing.json) documents the astrometric propagation and wavelength checks.
+- The Hubble image is credited to NASA, ESA, D. Jewitt (UCLA) and image processing to J. DePasquale (STScI). The image and walkthrough show the credit. [ESA/Hubble image](https://esahubble.org/images/heic2509b/) · [CC BY 4.0 terms](https://esahubble.org/copyright/)
+- The application bundles IBM Plex Sans and Serif under SIL OFL 1.1. Its notice travels with the fonts. [Bundled font notice](../apps/web/public/fonts/OFL.txt) · [IBM Plex source](https://github.com/IBM/plex)
+- Direct runtime libraries include [Next.js](https://github.com/vercel/next.js), [React and React DOM](https://github.com/facebook/react), and [FastAPI](https://github.com/fastapi/fastapi) (MIT), [Uvicorn](https://github.com/encode/uvicorn) and [Astropy](https://github.com/astropy/astropy) (BSD-3-Clause), [NumPy](https://github.com/numpy/numpy) (BSD-3-Clause and bundled component notices), and [Pillow](https://github.com/python-pillow/Pillow) (MIT-CMU). Package distributions contain their full notices.
 
-The official 2026 event page establishes registration, team size, submission location, window, and Global Judging eligibility; the participant terms establish source-citation and licensing obligations. I did not find a 2026 global judging rubric, scoring weights, or a 2026 Project Submission Guide in the official pages reviewed. Some 2026 Local Event pages reproduce criteria, but that local-event content is not a substitute for the Global Organizing Team's guide. Check the official Resources page and selected Local Event instructions; follow the live Project Tab form for any additional fields or deliverables. The deadline above is confirmed and unchanged.
+## Before publishing and submitting
 
-## Official sources
-
-- [2026 NASA Space Apps Challenge: timeline, team size, submission and Global Offers](https://www.spaceappschallenge.org/2026/)
-- [Official 2026 challenge list including Challenge 12, Planet X and SPHEREx](https://www.spaceappschallenge.org/2026/challenges/)
-- [2026 Participant Terms and Conditions: rights, licenses, source citations](https://www.spaceappschallenge.org/legal/)
-- [NASA Science announcement of the 2026 event and focus areas](https://science.nasa.gov/universe/nasa-welcomes-all-ages-experience-levels-for-space-apps-challenge/)
-- [2026 Resources page](https://www.spaceappschallenge.org/resources/) — consult for the current guide and judging materials; a 2026 global rubric was not confirmed during this review.
+- [x] Prepare the audited source revision and walkthrough on the submission branch. [Source and media](https://github.com/Romone6/AETHERTRACE/tree/feat/multipage-aethertrace)
+- [ ] Include the third-party credits and license details above. The repository has no project license file. NASA's terms specify Apache 2.0 for original submitted content when the submitter leaves the license unspecified. [Participant terms](https://www.spaceappschallenge.org/legal/)
+- [x] Claim the Vercel deployment and configure the production address. The public homepage responded, and a signed-out browser tested the saved Evidence enhancement flow. The API health endpoint, live Orion catalog, PNG preview, and FITS download responded successfully. [Public AETHERTRACE demo](https://aethertrace.vercel.app/) · [Deployment runbook](deployment.md)
+- [ ] Add the public demo, release source, credits, and [14-second walkthrough](media/comet-walkthrough.mp4) to the project's submission materials. Confirm the source of the decorative homepage sky background before finalizing the credits. Check the selected event's requirements and submit from its Project tab.

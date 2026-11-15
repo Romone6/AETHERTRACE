@@ -7,19 +7,20 @@ export const metadata: Metadata = {
   description: "Replay six SPHEREx exposures from two passes of interstellar comet 3I/ATLAS.",
 };
 
-type Query = { frame?: string; positions?: string; coverage?: string; display?: string; sampling?: string };
+type Query = { frame?: string; positions?: string; coverage?: string; display?: string; sampling?: string; simulation?: string };
 
 export default async function CometPage({ searchParams }: { searchParams: Promise<Query> }) {
-  const { frame, positions, coverage, display, sampling } = await searchParams;
+  const { frame, positions, coverage, display, sampling, simulation } = await searchParams;
   return (
     <main id="main" className="workspace comet-page">
       <CometWalkthrough
-        key={JSON.stringify([frame, positions, coverage, display, sampling])}
+        key={JSON.stringify([frame, positions, coverage, display, sampling, simulation])}
         initialFrame={frame}
         initialMarker={positions !== "0"}
         initialCoverage={coverage === "1"}
         initialEnhanced={display !== "standard"}
         initialSmooth={sampling !== "pixels"}
+        initialSimulation={simulation === "1"}
         standalone
       />
       <CometHubble />
