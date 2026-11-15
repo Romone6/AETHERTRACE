@@ -8,12 +8,19 @@ def percentile_limits(values, percentiles=(1, 99.5)):
     return float(low), float(high if high > low else low + 1)
 
 
+def _linear_scale(pixels, valid, low, high):
+    return np.clip((np.where(valid, pixels, low) - low) / (high - low), 0, 1)
+
+
 def asinh_grayscale(pixels, valid, low, high, *, strength=10):
-    scaled = np.clip((np.where(valid, pixels, low) - low) / (high - low), 0, 1)
+    scaled = _linear_scale(pixels, valid, low, high)
     return (255 * np.arcsinh(strength * scaled) / np.arcsinh(strength)).astype(np.uint8)
 
 
-def render_cutout_png(payload):
+CUTOUT_PERCENTILES = {"asinh": (1, 99.5), "linear": (1, 90)}
+
+
+def render_cutout_png(payload, *, stretch="asinh"):
     """Render a native-grid FITS cutout with the individual exposure stretch."""
     from io import BytesIO
 
@@ -25,8 +32,11 @@ def render_cutout_png(payload):
         finite = np.isfinite(pixels)
         if pixels.ndim != 2 or not finite.any():
             raise ValueError("FITS IMAGE extension has no finite 2D pixels")
-        low, high = percentile_limits(pixels[finite])
-        grayscale = asinh_grayscale(pixels, finite, low, high)
+        low, high = percentile_limits(pixels[finite], CUTOUT_PERCENTILES[stretch])
+        if stretch == "linear":
+            grayscale = (255 * _linear_scale(pixels, finite, low, high)).astype(np.uint8)
+        else:
+            grayscale = asinh_grayscale(pixels, finite, low, high)
     height, width = grayscale.shape
     preview = Image.fromarray(grayscale).resize((width * 8, height * 8), Image.Resampling.NEAREST)
     output = BytesIO()

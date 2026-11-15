@@ -15,7 +15,11 @@
       "image": "/observations/comet/2025W50_2A_0797_1.png",
       "local_excess": 6.6968582702166755,
       "annulus_mad": 0.18121516280099084,
-      "preview_sha256": "9938d8a8e989a971f8be433ecbce245fe75198e1fd2f845ad240a960ce23cd3b"
+      "preview_sha256": "9938d8a8e989a971f8be433ecbce245fe75198e1fd2f845ad240a960ce23cd3b",
+      "enhanced_image": "/observations/comet/2025W50_2A_0797_1-enhanced.png",
+      "enhanced_sha256": "793d2326c03c8a27936e537c4a37cc5315aec02fed79c7891d9df09a52c5ce4e",
+      "smooth_image": "/observations/comet/2025W50_2A_0797_1-smooth.png",
+      "smooth_sha256": "2c004990f9c15c33a549ab6c7614751ea8fc32488197b0c3875860dea8be6fb7"
     },
     {
       "id": "ivo://irsa.ipac/spherex_dr1?2025W50_2A_0797_2/D6",
@@ -32,7 +36,11 @@
       "image": "/observations/comet/2025W50_2A_0797_2.png",
       "local_excess": 2.843397183687024,
       "annulus_mad": 0.08990397246557982,
-      "preview_sha256": "6e08dc5b4c7aaa2024ee7a6d7d3829fea09defacbed0b5c305b4e6a9b0a816b7"
+      "preview_sha256": "6e08dc5b4c7aaa2024ee7a6d7d3829fea09defacbed0b5c305b4e6a9b0a816b7",
+      "enhanced_image": "/observations/comet/2025W50_2A_0797_2-enhanced.png",
+      "enhanced_sha256": "4e9464dff4c2fbb09412a65f422bf97334e7699ff95b63f7fd5388fac6386a6e",
+      "smooth_image": "/observations/comet/2025W50_2A_0797_2-smooth.png",
+      "smooth_sha256": "c9f7111ef78e2c4d715bce2395c5a0971a7da36b84bfa1e7606d2f8cdd1a9e8a"
     },
     {
       "id": "ivo://irsa.ipac/spherex_dr1?2025W50_2A_0797_4/D6",
@@ -49,7 +57,11 @@
       "image": "/observations/comet/2025W50_2A_0797_4.png",
       "local_excess": 2.2963911319678605,
       "annulus_mad": 0.09335574063163973,
-      "preview_sha256": "4622e13ad997841974eea0e411546119539b18c5f33e8b4588434dfa26bcd52c"
+      "preview_sha256": "4622e13ad997841974eea0e411546119539b18c5f33e8b4588434dfa26bcd52c",
+      "enhanced_image": "/observations/comet/2025W50_2A_0797_4-enhanced.png",
+      "enhanced_sha256": "7247046c3a5ffbf8c91e04cf4ec295bb6d65e1c651f8ab6370516d90f42adc75",
+      "smooth_image": "/observations/comet/2025W50_2A_0797_4-smooth.png",
+      "smooth_sha256": "e175368f4b4f4af55a086a352fdb9271b2acd947a39ee42544c2bba17fdb7bcb"
     }
   ],
   "scale": [
@@ -78,5 +90,55 @@
     "image": "/observations/comet/coverage.png",
     "sha256": "5b384b2837a882e33c23c84d6141dc74757ce856012b72a43f740c959b271d40",
     "description": "Blue marks pixels outside the shared finite footprint. The overlay does not represent quality flags."
-  }
+  },
+  "enhanced_display": {
+    "percentiles": [
+      3,
+      98
+    ],
+    "asinh_strength": 12,
+    "shared_limits_mjy_sr": [
+      0.7386151394902137,
+      2.0129718961823486
+    ],
+    "palette_quantity": "Stretched brightness in one D6 exposure, not wavelength",
+    "palette_stops": [
+      {
+        "level": 0,
+        "color": "#000000"
+      },
+      {
+        "level": 48,
+        "color": "#123646"
+      },
+      {
+        "level": 104,
+        "color": "#26857f"
+      },
+      {
+        "level": 166,
+        "color": "#c48d52"
+      },
+      {
+        "level": 220,
+        "color": "#f9be76"
+      },
+      {
+        "level": 255,
+        "color": "#fff5db"
+      }
+    ]
+  },
+  "smooth_display": {
+    "grid_pixels_per_side": 656,
+    "display_arcsec_per_sample": 0.384375,
+    "covered_samples": 400805,
+    "sampling": "Direct bilinear sampling of each native FITS image through its WCS. The display retains only the original shared footprint where every fine-grid exposure also has finite support.",
+    "coverage_overlay": {
+      "image": "/observations/comet/coverage-smooth.png",
+      "sha256": "5da0da9911616904250f9a816d54c415d98e34e551cdf0695ae55e9d6b666ea6"
+    }
+  },
+  "cutout_center": "166.679549,5.330285",
+  "cutout_size_deg": 0.08
 }

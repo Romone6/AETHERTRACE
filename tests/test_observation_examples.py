@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import numpy as np
+import pytest
 from PIL import Image
 
 WEB = Path(__file__).parents[1] / "apps/web"
@@ -24,6 +25,12 @@ def test_saved_demo_contains_exact_barnard_records_and_native_previews():
         assert hashlib.sha256(path.read_bytes()).hexdigest() == entry["preview_sha256"]
         with Image.open(path) as image:
             assert image.mode == "L"
+            shape = image.size
+        linear_path = WEB / "public" / entry["linear_preview"].lstrip("/")
+        assert hashlib.sha256(linear_path.read_bytes()).hexdigest() == entry["linear_sha256"]
+        assert path.read_bytes() != linear_path.read_bytes()
+        with Image.open(linear_path) as image:
+            assert image.mode == "L" and image.size == shape
 
 
 def test_comet_coverage_overlay_matches_the_shared_display_footprint():
@@ -38,6 +45,16 @@ def test_comet_coverage_overlay_matches_the_shared_display_footprint():
     for frame in manifest["frames"]:
         with Image.open(WEB / "public" / frame["image"].lstrip("/")) as image:
             assert np.all(np.asarray(image)[masked] == 0)
+            standard = np.asarray(image).copy()
+        enhanced_path = WEB / "public" / frame["enhanced_image"].lstrip("/")
+        assert hashlib.sha256(enhanced_path.read_bytes()).hexdigest() == frame["enhanced_sha256"]
+        with Image.open(enhanced_path) as image:
+            enhanced = np.asarray(image)
+            assert image.mode == "RGB"
+            assert enhanced.shape[:2] == standard.shape
+            assert np.any(enhanced[..., 0] != enhanced[..., 1])
+            assert np.all(enhanced[masked] == 0)
+            assert np.median(enhanced[~masked]) > np.median(standard[~masked])
 
 
 def test_curated_previews_match_manifest_and_share_one_grid():
@@ -53,6 +70,28 @@ def test_curated_previews_match_manifest_and_share_one_grid():
                 dimensions.add(preview.size)
                 preview.verify()
         assert len(dimensions) == 1
+
+
+@pytest.mark.parametrize("pass_directory", ["", "later"])
+def test_comet_smooth_render_preserves_missing_coverage(pass_directory):
+    root = WEB / "public/observations/comet" / pass_directory
+    report = json.loads((root / "processing.json").read_text())
+    smooth = report["smooth_display"]
+    with Image.open(WEB / "public" / smooth["coverage_overlay"]["image"].lstrip("/")) as image:
+        masked = np.asarray(image.getchannel("A")) > 0
+    assert masked.shape == (656, 656)
+    with Image.open(root / "coverage.png") as image:
+        original_mask = np.asarray(image.getchannel("A")) > 0
+    original_mask = original_mask.repeat(2, axis=0).repeat(2, axis=1)
+    assert np.all(masked[original_mask])
+    for frame in report["frames"]:
+        path = WEB / "public" / frame["smooth_image"].lstrip("/")
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == frame["smooth_sha256"]
+        with Image.open(path) as image:
+            pixels = np.asarray(image)
+            assert pixels.shape == (656, 656, 3)
+            assert np.all(pixels[masked] == 0)
+            assert np.unique(pixels[~masked], axis=0).shape[0] > 128
 
 
 def test_barnard_worked_pair_fails_wavelength_and_center_mask_gates():

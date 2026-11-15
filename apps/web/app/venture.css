@@ -573,9 +573,34 @@
 }
 
 .display-method-link { text-underline-offset: 3px; }
-.explorer-composite { margin-top: 20px; padding: 14px; }
-.explorer-composite summary { color: var(--navy); cursor: pointer; font-weight: 600; }
-.explorer-composite .home-composite { margin: 14px 0 0; }
+.explorer-image-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  width: fit-content;
+  margin-bottom: 12px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #eef1ed;
+}
+.explorer-image-modes button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.explorer-image-modes button[aria-pressed="true"] {
+  border-color: #b7c7e7;
+  background: #fff;
+  color: var(--blue);
+}
+.explorer-featured-image .home-composite { margin: 0; }
 .method-step[id] { scroll-margin-top: 24px; }
 .method-step p + p { margin-top: 8px; }
 .method-source-list { display: grid; gap: 4px; padding-left: 18px; margin-bottom: 0; font-size: 14px; }
@@ -758,3 +783,105 @@
   .archive-filters .filter-select select { max-width: none; }
   .comet-image { max-width: min(100%, 46vh); }
 }
+
+.deck-viewer .exposure-stretch { margin: 12px 0 0; }
+
+.comet-replay {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 12px;
+  margin-top: 8px;
+}
+.comet-replay .button-primary { min-width: 114px; min-height: 44px; }
+.comet-replay > span { color: var(--muted); font-size: 12px; }
+.comet-crosshair::before, .comet-crosshair::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: #fff0a5;
+  box-shadow: 0 0 0 1px #111827;
+  transform: translate(-50%, -50%);
+  content: "";
+}
+.comet-crosshair::before { width: 14px; height: 1px; }
+.comet-crosshair::after { width: 1px; height: 14px; }
+
+.comet-page .comet-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.comet-page .comet-image { width: min(100%, 58vh, 620px); }
+.comet-stage { position: relative; }
+.comet-pass-break {
+  position: absolute;
+  z-index: 1;
+  inset: 10px auto auto 10px;
+  max-width: calc(100% - 20px);
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: #101a2b;
+  color: #fff;
+  font-size: 12px;
+}
+@media (min-width: 900px) {
+  .comet-page .comet-filmstrip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+.comet-detail-jump {
+  display: inline-block;
+  color: var(--blue);
+  font-weight: 600;
+  text-underline-offset: 4px;
+}
+.comet-walkthrough > .comet-detail-jump { margin-bottom: 14px; }
+.comet-hubble { margin-top: 18px; padding: clamp(14px, 3vw, 28px); }
+.comet-hubble h2 {
+  margin: 0;
+  scroll-margin-top: 18px;
+  color: var(--navy);
+  font: 400 clamp(25px, 3.5vw, 37px)/1.15 var(--serif);
+}
+.comet-hubble figure { margin: 16px 0; }
+.comet-hubble figure > a { display: block; max-width: 900px; }
+.comet-hubble img { display: block; width: 100%; height: auto; border-radius: 6px; }
+.comet-hubble figcaption { margin-top: 8px; color: var(--muted); font-size: 12px; }
+.comet-hubble a { text-underline-offset: 3px; }
+
+.comet-quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 18px;
+  margin-bottom: 12px;
+}
+.comet-quick-links > a, .comet-quick-links > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font: 600 14px var(--sans);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.comet-stage-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 6px;
+  color: #43536a;
+  font-size: 12px;
+}
+.comet-stage-meta > span:first-child { font-weight: 600; }
+.comet-display-options {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+.comet-display-options summary { cursor: pointer; color: var(--navy); font-weight: 600; }
+.comet-display-options .explorer-image-modes { margin-top: 10px; }
+.comet-hubble figcaption > span { display: block; color: var(--navy); font-weight: 600; }

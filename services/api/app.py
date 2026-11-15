@@ -11,7 +11,7 @@ from collections import OrderedDict
 from enum import Enum
 from threading import Lock
 from time import monotonic, sleep
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Query, Response
@@ -46,7 +46,7 @@ CUTOUT_CACHE_ENTRIES = 4
 CUTOUT_CACHE_TTL_SECONDS = 120
 _cutout_cache: OrderedDict[str, tuple[float, bytes]] = OrderedDict()
 _cutout_cache_lock = Lock()
-_preview_cache: OrderedDict[tuple[str, str, float], tuple[float, bytes, str]] = OrderedDict()
+_preview_cache: OrderedDict[tuple[str, str, float, str], tuple[float, bytes, str]] = OrderedDict()
 
 
 class TargetModel(BaseModel):
@@ -314,21 +314,26 @@ def _comparison_cutout(observation: dict[str, Any], target_info: dict[str, Any])
 
 
 @app.get("/api/preview")
-def get_preview(target: str = Query(...), observation_id: str = Query(...), size: float = Query(DEFAULT_CUTOUT_SIZE, gt=0, le=0.1)):
+def get_preview(
+    target: str = Query(...),
+    observation_id: str = Query(...),
+    size: float = Query(DEFAULT_CUTOUT_SIZE, gt=0, le=0.1),
+    stretch: Literal["asinh", "linear"] = "asinh",
+):
     """Return a labeled display preview; this is not photometry or a change measurement."""
     from services.api.display import render_cutout_png
 
     _target(target)
     size = _number(size, "size", 0.1)
-    key = target, observation_id, size
+    key = target, observation_id, size, stretch
     with _cutout_cache_lock:
         cached = _preview_cache.pop(key, None)
         if cached is not None and cached[0] > monotonic():
             _preview_cache[key] = cached
-            return _preview_response(cached[1], cached[2])
+            return _preview_response(cached[1], cached[2], stretch)
     fits_response = get_cutout(target, observation_id, size)
     try:
-        png = render_cutout_png(fits_response.body)
+        png = render_cutout_png(fits_response.body, stretch=stretch)
     except Exception as error:
         raise HTTPException(502, "IRSA FITS image could not be rendered") from error
     source = fits_response.headers["X-Source-URL"]
@@ -338,13 +343,16 @@ def get_preview(target: str = Query(...), observation_id: str = Query(...), size
             _preview_cache.move_to_end(key)
             if len(_preview_cache) > 64:
                 _preview_cache.popitem(last=False)
-    return _preview_response(png, source)
+    return _preview_response(png, source, stretch)
 
 
-def _preview_response(png: bytes, source: str):
+def _preview_response(png: bytes, source: str, stretch: str):
+    from services.api.display import CUTOUT_PERCENTILES
+
+    low, high = CUTOUT_PERCENTILES[stretch]
     return Response(png, media_type="image/png", headers={
         "Cache-Control": "public, max-age=86400",
         "X-Source-URL": source,
-        "X-Display-Stretch": "percentile-1-99.5-asinh",
+        "X-Display-Stretch": f"percentile-{low}-{high}-{stretch}",
         "X-Scientific-Use": "visual-preview-only",
     })

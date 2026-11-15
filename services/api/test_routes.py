@@ -286,6 +286,13 @@ def test_preview_renders_fits_image_as_display_only_png(monkeypatch):
     assert response.headers["content-type"] == "image/png"
     assert response.headers["x-scientific-use"] == "visual-preview-only"
     assert response.content.startswith(b"\x89PNG\r\n\x1a\n")
+    assert response.headers["x-display-stretch"] == "percentile-1-99.5-asinh"
+    linear = client.get("/api/preview", params={
+        "target": "barnards-star", "observation_id": ROW_A["obs_id"], "stretch": "linear",
+    })
+    assert linear.status_code == 200
+    assert linear.headers["x-display-stretch"] == "percentile-1-90-linear"
+    assert linear.content != response.content
 
 
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import comet from "../public/observations/comet/processing.json";
+import laterCometPass from "../public/observations/comet/later/processing.json";
 import barnard from "../public/observations/barnard/processing.json";
 import { ShareLink } from "./share-link";
 import { DisplayMethodLink } from "./sky-composites";
@@ -70,66 +71,110 @@ export function WorkedExampleLink() {
   return (
     <Link className="example-link" href="/comet">
       <img src={comet.frames[0].image} alt="" width={100} height={100} />
-      <div><strong>Follow interstellar comet 3I/ATLAS</strong><span>Three aligned SPHEREx exposures, with the comet’s predicted position.</span></div>
+      <div><strong>Follow interstellar comet 3I/ATLAS</strong><span>Replay six SPHEREx exposures from two passes.</span></div>
       <span className="example-arrow" aria-hidden="true">↗</span>
     </Link>
   );
 }
+
+const cometPasses = [comet, laterCometPass];
+const cometExposures = cometPasses.flatMap((pass, passIndex) =>
+  pass.frames.map((frame, passFrame) => ({ frame, passIndex, passFrame })));
+const finalCometFrame = cometExposures.at(-1)!.frame;
+export const finalCometHref = `/comet?${new URLSearchParams({ frame: finalCometFrame.id, positions: "1" })}`;
 
 function elapsedSinceFirst(date: string) {
   const seconds = Math.round((Date.parse(date) - Date.parse(comet.frames[0].date)) / 1000);
   return `+${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-export function CometWalkthrough({ initialFrame, initialMarker = true, initialCoverage = false, standalone = false }: {
+export function CometWalkthrough({ initialFrame, initialMarker = true, initialCoverage = false, initialEnhanced = true, initialSmooth = true, standalone = false }: {
   initialFrame?: string;
   initialMarker?: boolean;
   initialCoverage?: boolean;
+  initialEnhanced?: boolean;
+  initialSmooth?: boolean;
   standalone?: boolean;
 }) {
-  const [index, setIndex] = useState(() => Math.max(0, comet.frames.findIndex((frame) => frame.id === initialFrame)));
+  const [index, setIndex] = useState(() => Math.max(0, cometExposures.findIndex(({ frame }) => frame.id === initialFrame)));
   const [showMarker, setShowMarker] = useState(initialMarker);
   const [showCoverage, setShowCoverage] = useState(initialCoverage);
-  const frame = comet.frames[index];
-  const [low, high] = comet.scale;
-  const shareParams = new URLSearchParams({ frame: frame.id, positions: showMarker ? "1" : "0", coverage: showCoverage ? "1" : "0" });
+  const [enhanced, setEnhanced] = useState(initialEnhanced);
+  const [playing, setPlaying] = useState(false);
+  const [smooth, setSmooth] = useState(initialSmooth);
+  const smoothActive = enhanced && smooth;
+  const imageKey = smoothActive ? "smooth_image" : enhanced ? "enhanced_image" : "image";
+  const { frame, passIndex, passFrame } = cometExposures[index];
+  const pass = cometPasses[passIndex];
+  const isNewPass = passIndex > 0 && passFrame === 0;
+  const [low, high] = enhanced ? pass.enhanced_display.shared_limits_mjy_sr : pass.scale;
+  const colorRamp = enhanced
+    ? `linear-gradient(90deg, ${pass.enhanced_display.palette_stops.map(({ color, level }) => `${color} ${(level / 255) * 100}%`).join(", ")})`
+    : undefined;
+  const shareParams = new URLSearchParams({ frame: frame.id, positions: showMarker ? "1" : "0", coverage: showCoverage ? "1" : "0", display: enhanced ? "enhanced" : "standard", sampling: smooth ? "smooth" : "pixels" });
   const title = "Follow interstellar comet 3I/ATLAS";
   const cutout = new URL(frame.source);
-  cutout.searchParams.set("center", "166.679549,5.330285");
-  cutout.searchParams.set("size", "0.08");
+  cutout.searchParams.set("center", pass.cutout_center);
+  cutout.searchParams.set("size", String(pass.cutout_size_deg));
 
   useEffect(() => {
-    if (index + 1 < comet.frames.length) {
-      const image = new Image();
-      image.src = comet.frames[index + 1].image;
-    }
-  }, [index]);
+    const nextIndex = (index + 1) % cometExposures.length;
+    const next = cometExposures[nextIndex].frame;
+    const image = new Image();
+    image.src = next[imageKey];
+    if (!playing) return;
+    const timer = window.setTimeout(() => setIndex(nextIndex), isNewPass ? 2400 : 1400);
+    return () => window.clearTimeout(timer);
+  }, [index, imageKey, playing, isNewPass]);
+
+  function freezeFrame(next: number) {
+    setPlaying(false);
+    setIndex(next);
+  }
 
   return (
     <section className="card guided-observation comet-walkthrough" aria-labelledby="comet-title">
       {standalone ? <h1 id="comet-title">{title}</h1> : <h2 id="comet-title">{title}</h2>}
-      <p>Step through three SPHEREx exposures taken minutes apart on 14 December 2025. Each frame uses the same sky coordinates and brightness scale.</p>
+      <p>Replay six SPHEREx exposures from two passes on 14 December 2025. Each pass uses its own sky grid and shared brightness scale.</p>
+      <div className="comet-quick-links">
+        {frame.id !== finalCometFrame.id && (standalone
+          ? <button type="button" onClick={() => { freezeFrame(cometExposures.length - 1); setShowMarker(true); }}>Jump to final tracked frame</button>
+          : <Link href={finalCometHref}>Open final tracked frame</Link>)}
+        <a className="comet-detail-jump" href="#comet-hubble">See the comet in finer detail with Hubble <span aria-hidden="true">↓</span></a>
+      </div>
       <div className="comet-layout">
         <div className="comet-viewer">
+          <div className="comet-stage-meta">
+            <span>SPHEREx D6 · <time dateTime={frame.date}>{frame.date.slice(11, 19)} UTC</time> · 14 Dec 2025</span>
+            <span>{enhanced ? "Color by infrared brightness" : "Grayscale infrared brightness"}</span>
+          </div>
           <div className="comparison-image comet-stage">
+            {isNewPass && <span className="comet-pass-break">Second pass · 1 h 33 min later</span>}
             <div className="comet-image">
-              <img src={frame.image} alt="SPHEREx infrared cutout of the 3I/ATLAS field" />
-              {showCoverage && <img className="comet-coverage" src={comet.coverage_overlay.image} alt="" />}
-              {showMarker && comet.frames.slice(0, index).map((past) => (
+              <img src={frame[imageKey]} alt="SPHEREx infrared cutout of the 3I/ATLAS field" />
+              {showCoverage && <img className="comet-coverage" src={(smoothActive ? pass.smooth_display.coverage_overlay : pass.coverage_overlay).image} alt="" />}
+              {showMarker && pass.frames.slice(0, passFrame).map((past) => (
                 <span aria-hidden="true" key={past.id} className="comet-past-position" style={{ left: `${past.marker[0] * 100}%`, top: `${past.marker[1] * 100}%` }} />
               ))}
-              {showMarker && <span aria-hidden="true" className="comet-marker" style={{ left: `${frame.marker[0] * 100}%`, top: `${frame.marker[1] * 100}%` }} />}
+              {showMarker && <span aria-hidden="true" className="comet-marker comet-crosshair" style={{ left: `${frame.marker[0] * 100}%`, top: `${frame.marker[1] * 100}%` }} />}
             </div>
+          </div>
+          <div className="comet-replay">
+            <button className="button-primary" type="button" onClick={() => setPlaying((value) => !value)}>
+              {playing ? "Freeze frame" : "Play sequence"}
+            </button>
+            <span>{playing ? "Playing archived exposures" : "Frozen frame · archived exposure"} · Pass {passIndex + 1} of 2</span>
           </div>
           <div className="comet-filmstrip" role="group" aria-label="Comet exposures" onKeyDown={(event) => {
             if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
             event.preventDefault();
-            const next = Math.max(0, Math.min(comet.frames.length - 1, index + (event.key === "ArrowLeft" ? -1 : 1)));
-            setIndex(next);
+            const next = Math.max(0, Math.min(cometExposures.length - 1, index + (event.key === "ArrowLeft" ? -1 : 1)));
+            freezeFrame(next);
             event.currentTarget.querySelectorAll("button")[next]?.focus();
           }}>
-            {comet.frames.map((exposure, i) => (
-              <button key={exposure.id} type="button" aria-pressed={index === i} aria-label={`Show exposure ${i + 1}, ${exposure.date.slice(11, 19)} UTC, ${elapsedSinceFirst(exposure.date)} elapsed`} onClick={() => setIndex(i)}>
+            {cometExposures.map(({ frame: exposure, passIndex: group, passFrame: order }, i) => (
+              <button key={exposure.id} data-pass-start={order === 0 || undefined} type="button" aria-pressed={index === i} aria-label={`Show exposure ${i + 1}, ${exposure.date.slice(11, 19)} UTC, ${elapsedSinceFirst(exposure.date)} elapsed`} onClick={() => freezeFrame(i)}>
+                <span>Pass {group + 1}</span>
                 <time dateTime={exposure.date}>{exposure.date.slice(11, 19)} UTC</time>
                 <span>{elapsedSinceFirst(exposure.date)}</span>
               </button>
@@ -137,19 +182,28 @@ export function CometWalkthrough({ initialFrame, initialMarker = true, initialCo
           </div>
         </div>
         <div className="comet-controls">
-          <p className="comet-epoch" aria-live="polite">Frame {index + 1} of {comet.frames.length} · {frame.date.slice(11, 19)} UTC · {elapsedSinceFirst(frame.date)} elapsed</p>
-          <div className="comet-overlays">
-            <label><input type="checkbox" checked={showMarker} onChange={(event) => setShowMarker(event.target.checked)} /> Show predicted positions</label>
-            <label><input type="checkbox" checked={showCoverage} onChange={(event) => setShowCoverage(event.target.checked)} /> Show coverage gaps</label>
-          </div>
-          {showMarker && <p><span className="comet-marker-key" aria-hidden="true" /> Ring shows the current predicted position. Dots show earlier predictions.</p>}
-          {showCoverage && <p className="mask-legend"><span aria-hidden="true" /> Blue marks coverage gaps. {comet.common_pixels.toLocaleString("en")} of {comet.total_pixels.toLocaleString("en")} pixels have finite data in all three frames.</p>}
+          <p className="comet-epoch" aria-live={playing ? "off" : "polite"}>Frame {index + 1} of {cometExposures.length} · {frame.date.slice(11, 19)} UTC · {elapsedSinceFirst(frame.date)} elapsed</p>
+          <details className="comet-display-options">
+            <summary>Display and tracking options</summary>
+            <div className="explorer-image-modes" role="group" aria-label="Comet display">
+              <button type="button" aria-pressed={enhanced} onClick={() => setEnhanced(true)}>Enhanced</button>
+              <button type="button" aria-pressed={!enhanced} onClick={() => setEnhanced(false)}>Standard</button>
+            </div>
+            <div className="comet-overlays">
+              {enhanced && <label><input type="checkbox" checked={smooth} onChange={(event) => setSmooth(event.target.checked)} /> Smooth display</label>}
+              <label><input type="checkbox" checked={showMarker} onChange={(event) => setShowMarker(event.target.checked)} /> Show predicted positions</label>
+              <label><input type="checkbox" checked={showCoverage} onChange={(event) => setShowCoverage(event.target.checked)} /> Show coverage gaps</label>
+            </div>
+            {showMarker && <p><span className="comet-marker-key" aria-hidden="true" /> Crosshair shows the current predicted position. Dots show earlier predictions in this pass.</p>}
+            {showCoverage && <p className="mask-legend"><span aria-hidden="true" /> Blue marks shared coverage gaps. {smoothActive ? "The finer grid also excludes samples without finite support in every exposure." : `${pass.common_pixels.toLocaleString("en")} of ${pass.total_pixels.toLocaleString("en")} pixels have finite data in all three frames.`}</p>}
+          </details>
           <div className="comet-scale">
-            <span>D6 · Shared grayscale asinh stretch</span>
-            <div aria-hidden="true" className="comet-scale-ramp" />
+            <span>D6 · {enhanced ? "Color by brightness" : "Standard grayscale"} · Shared scale</span>
+            <div aria-hidden="true" className="comet-scale-ramp" style={{ background: colorRamp }} />
             <span>{low.toFixed(2)}–{high.toFixed(2)} MJy/sr display limits</span>
           </div>
-          <p>The archive flags the predicted center as an outlier in all three exposures.</p>
+          {smoothActive && <p className="comet-sampling">656 × 656 display · resampled from the detector data.</p>}
+          <p>The archive flags the predicted center as an outlier in this exposure.</p>
           <ShareLink key={shareParams.toString()} href={`/comet?${shareParams}`} label="Link to this exposure" />
           <details className="comet-provenance">
             <summary>Source and processing details</summary>
@@ -158,7 +212,7 @@ export function CometWalkthrough({ initialFrame, initialMarker = true, initialCo
               <a href={cutout.href}>FITS cutout ↗</a>
               <a href={frame.source} target="_blank" rel="noreferrer">Source product ↗</a>
               <a href="https://irsa.ipac.caltech.edu/data/SPHEREx/docs/comet3iatlas/index.html" target="_blank" rel="noreferrer">IRSA observation table ↗</a>
-              <a href="/observations/comet/processing.json">Processing record (JSON)</a>
+              <a href={passIndex === 0 ? "/observations/comet/processing.json" : "/observations/comet/later/processing.json"}>Processing record (JSON)</a>
             </div>
             <p className="observation-id">{frame.id}</p>
           </details>

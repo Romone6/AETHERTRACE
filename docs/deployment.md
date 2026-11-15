@@ -2,7 +2,7 @@
 
 ## Current boundary
 
-A local FastAPI service and Next.js App Router interface are implemented and integrated. The web app displays authentic IRSA/SPHEREx cutout previews from a selectable detector channel. The API and frontend have been built and smoke-tested locally. The preview stretch is for visual browsing only; there is no calibrated photometry, registered difference image, variability result, public hosting, or public demo URL.
+The FastAPI service and Next.js frontend run locally. The live archive serves SPHEREx DR1 metadata and FITS previews. The bundled demo includes four false-color fields, a six-frame 3I/ATLAS replay, the Hubble reference image, and a saved Barnard’s Star comparison. The previews support visual browsing. Scientific brightness and variability measurements require further validation. A public demo URL is pending.
 
 The UI uses a fixed ICRS coordinate. Barnard's Star proper motion has not been applied, so the displayed cutouts are not verified as centered on the star at every epoch. Do not describe them as a verified stellar light curve or discovery.
 
@@ -45,6 +45,35 @@ python3 -c 'import yaml; yaml.safe_load(open("packages/contracts/openapi.yaml"))
 
 The GitHub Actions workflow runs the same OpenAPI lint on pushes to `main` and `feat/infrastructure`, pull requests, and manual dispatch. It validates the contract only; it does not build or deploy an application.
 
-## Deployment gate
+## Production preview and release
 
-Before public deployment, add measured science only after the proper-motion-aware photometry and validation gates pass, choose and review a host, verify public IRSA access and timeout/error behavior, and document cost/credential requirements. This local-first prototype does not require a cloud provider.
+Build and run the web app with the deployed API origin set at build time so the same-origin `/api/*` rewrite uses the intended service. Run the API from the repository root. Use separate terminals for local production rehearsal.
+
+```sh
+.venv/bin/uvicorn services.api.app:app --host 127.0.0.1 --port 8000
+```
+
+```sh
+npm --prefix apps/web ci
+AETHERTRACE_API_URL=http://127.0.0.1:8000 npm --prefix apps/web run build
+AETHERTRACE_API_URL=http://127.0.0.1:8000 npm --prefix apps/web run start
+```
+
+For a hosted preview, replace the local API origin with the deployed HTTPS origin. From the public preview, verify:
+
+- The homepage opens the comet replay. Its six frames play, freeze, and reopen from a copied link. The Explorer observation section loads the credited Hubble reference.
+- `/api/targets` and a live IRSA catalog request succeed. Open a specific archive exposure, verify its image, and download its FITS cutout.
+- A fresh session with archive requests blocked still loads the comet, field composites, and saved Barnard exposures. An outage notice identifies saved records.
+- Run the same checks at a narrow mobile width and confirm the release commit matches the public demo. Add that public link to the README and submission materials.
+
+### Vercel preview
+
+Run the staging script from the repository root. It builds a temporary project with the frontend and FastAPI as separate Vercel Services under one domain. The release package contains the application and public observation assets and excludes local environment files and build caches.
+
+```sh
+aether_stage="$(bash scripts/stage_vercel_preview.sh)"
+cd "$aether_stage"
+npx --yes vercel@latest --yes
+```
+
+The deployment requires an authenticated Vercel CLI session. The preview routes `/api/*` to FastAPI and other paths to Next.js. After deploying, run the public checks above in a signed-out browser and confirm that the intended audience can open the preview.

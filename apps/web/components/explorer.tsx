@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CometHubble } from "./comet-hubble";
 import { ShareLink } from "./share-link";
 import { BarnardValidation, BarnardMethod, Blink, CometWalkthrough, WorkedExampleLink, verifiedBarnardFrames } from "./guided-observations";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -192,8 +193,12 @@ function ComparisonCutout({ observation, targetId, label, inspection, savedOnly 
   );
 }
 
-function previewUrl(target: string, observation: string) {
-  return `/api/preview?${new URLSearchParams({ target, observation_id: observation, size: "0.05" })}`;
+type ExposureStretch = "asinh" | "linear";
+
+function previewUrl(target: string, observation: string, stretch: ExposureStretch = "asinh") {
+  const params = new URLSearchParams({ target, observation_id: observation, size: "0.05" });
+  if (stretch === "linear") params.set("stretch", stretch);
+  return `/api/preview?${params}`;
 }
 
 function viewLink(view: "explorer" | "evidence", target: string, channel: string, a: string, b?: string) {
@@ -269,6 +274,7 @@ const pageCopy: Record<Exclude<View, "home">, { title: string; intro: string }> 
 export default function Explorer({ view }: { view: View }) {
   const [barnardOpen, setBarnardOpen] = useState(false);
   const [showComposite, setShowComposite] = useState(true);
+  const [exposureStretch, setExposureStretch] = useState<ExposureStretch>("asinh");
   const [targets, setTargets] = useState<Target[]>(savedDemo.targets);
   const [target, setTarget] = useState<Target | null>(null);
   const [observations, setObservations] = useState<Observation[]>([]);
@@ -293,12 +299,14 @@ export default function Explorer({ view }: { view: View }) {
   const channels = Array.from(new Set(observations.map((item) => item.channel))).sort();
   const channelObservations = observations.filter((item) => item.channel === channel);
   const frame = channelObservations[frameIndex];
-  const savedPreview = target?.id === savedDemo.target && frame && (savedCatalog || previewFailed)
-    ? savedExposures.get(frame.id)?.preview : undefined;
+  const savedExposure = target?.id === savedDemo.target && frame && (savedCatalog || previewFailed)
+    ? savedExposures.get(frame.id) : undefined;
+  const savedPreview = exposureStretch === "linear" ? savedExposure?.linear_preview : savedExposure?.preview;
   const previewUnavailable = previewFailed && !savedPreview;
-  const compositeField = target?.id ?? "orion-nebula";
+  const compositeField = target?.id ?? (view === "explorer" ? savedDemo.target : "orion-nebula");
   const hasComposite = Boolean(composites[compositeField]);
   const showingComposite = showComposite && hasComposite;
+  const exposureMode = view === "explorer" && !showingComposite;
   const filteredObservations = observations.filter((item) => {
     const needle = query.trim().toLocaleLowerCase();
     const matchesQuery = !needle || [item.id, item.release, item.channel, item.observed_at]
@@ -312,6 +320,7 @@ export default function Explorer({ view }: { view: View }) {
     async function load() {
       try {
         const params = new URLSearchParams(window.location.search);
+        if (view === "explorer") setShowComposite(!params.has("frame") && params.get("view") !== "exposure");
         const requestedField = params.get("target");
         const savedTarget = window.sessionStorage.getItem("aethertrace-field");
         const first = savedDemo.targets.find((item) => item.id === requestedField)
@@ -482,15 +491,15 @@ export default function Explorer({ view }: { view: View }) {
 
   const nextFrame = channelObservations[frameIndex + 1];
   useEffect(() => {
-    if (view !== "explorer" || savedCatalog || !frame || !nextFrame || !target) return;
+    if (!exposureMode || savedCatalog || !frame || !nextFrame || !target) return;
     const current = new Image();
     current.onload = () => {
       const next = new Image();
-      next.src = previewUrl(target.id, nextFrame.id);
+      next.src = previewUrl(target.id, nextFrame.id, exposureStretch);
     };
-    current.src = previewUrl(target.id, frame.id);
+    current.src = previewUrl(target.id, frame.id, exposureStretch);
     return () => { current.onload = null; };
-  }, [view, target, frame, nextFrame, savedCatalog]);
+  }, [exposureMode, target, frame, nextFrame, savedCatalog, exposureStretch]);
 
   useEffect(() => {
     if (view !== "evidence") return;
@@ -594,49 +603,63 @@ export default function Explorer({ view }: { view: View }) {
 
           {view === "explorer" && (
             <>
-              <div className="deck-grid">
-                <section className="deck-viewer card" aria-label="Observation sequence">
-                  <div className="card-heading">
-                    <div>
-                      <h2>{target?.name ?? "Observations"}</h2>
-                      {frame && <time className="deck-time" dateTime={frame.observed_at}>{formatDate(frame.observed_at)}</time>}
+              {hasComposite && (
+                <div className="explorer-image-modes" role="group" aria-label="Image view">
+                  <button type="button" aria-pressed={showingComposite} onClick={() => { setPlaying(false); setShowComposite(true); }}>Enhanced composite</button>
+                  <button type="button" aria-pressed={!showingComposite} onClick={() => setShowComposite(false)}>Individual exposures</button>
+                </div>
+              )}
+              {showingComposite ? (
+                <div className="explorer-featured-image">
+                  <SkyComposite field={compositeField} explorer />
+                </div>
+              ) : (
+                <div className="deck-grid">
+                  <section className="deck-viewer card" aria-label="Observation sequence">
+                    <div className="card-heading">
+                      <div>
+                        <h2>{target?.name ?? "Observations"}</h2>
+                        {frame && <time className="deck-time" dateTime={frame.observed_at}>{formatDate(frame.observed_at)}</time>}
+                      </div>
+                      <span className="sequence-count">{frame ? `${frameIndex + 1} / ${channelObservations.length}` : "— / —"}</span>
                     </div>
-                    <span className="sequence-count">{frame ? `${frameIndex + 1} / ${channelObservations.length}` : "— / —"}</span>
-                  </div>
-                  <div className="playback-controls"><button type="button" className="play-button" onClick={() => setPlaying((value) => !value)} disabled={channelObservations.length < 2} aria-label={playing ? "Pause sequence" : "Play sequence"}>{playing ? "Ⅱ" : "▶"}</button><label htmlFor="frame-select">FRAME</label><input id="frame-select" type="range" min="0" max={Math.max(0, channelObservations.length - 1)} value={frameIndex} disabled={!channelObservations.length} onChange={(event) => { setPlaying(false); setFrameIndex(Number(event.target.value)); }} aria-valuetext={frame ? formatDate(frame.observed_at) : "No frame"} /><span className="channel-control"><label htmlFor="channel-select">CHANNEL</label><select id="channel-select" value={channel} disabled={!channels.length} onChange={(event) => { setChannel(event.target.value); setFrameIndex(0); setPlaying(false); }}>
-                    {channels.length ? channels.map((item) => <option key={item} value={item}>{item.replace("SPHEREx-", "")}</option>) : <option value="">—</option>}
-                  </select></span></div>
-                  <figure className="deck-stage">
-                    {frame && target && !previewUnavailable ? <img className="deck-image" src={savedPreview ?? previewUrl(target.id, frame.id)} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewUnavailable ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "No exposure available"} detail={previewUnavailable ? "The archive cutout could not be loaded." : "Choose a field to view its images."} />}
-                    {frame && !previewUnavailable && <figcaption className="deck-plate-caption">{frame.release} / {frame.channel.replace("SPHEREx-", "")}</figcaption>}
-                  </figure>
-                  {frame && (
-                    <div className="frame-caption">
-                      <span>{savedPreview ? "Saved DR1 preview · " : ""}Individual grayscale stretch</span>
-                      {previewUnavailable && <button className="preview-retry" type="button" onClick={() => setPreviewFailed(false)}>Retry preview</button>}
-                      <DisplayMethodLink kind="previews" />
+                    <div className="playback-controls"><button type="button" className="play-button" onClick={() => setPlaying((value) => !value)} disabled={channelObservations.length < 2} aria-label={playing ? "Pause sequence" : "Play sequence"}>{playing ? "Ⅱ" : "▶"}</button><label htmlFor="frame-select">FRAME</label><input id="frame-select" type="range" min="0" max={Math.max(0, channelObservations.length - 1)} value={frameIndex} disabled={!channelObservations.length} onChange={(event) => { setPlaying(false); setFrameIndex(Number(event.target.value)); }} aria-valuetext={frame ? formatDate(frame.observed_at) : "No frame"} /><span className="channel-control"><label htmlFor="channel-select">CHANNEL</label><select id="channel-select" value={channel} disabled={!channels.length} onChange={(event) => { setChannel(event.target.value); setFrameIndex(0); setPlaying(false); }}>
+                      {channels.length ? channels.map((item) => <option key={item} value={item}>{item.replace("SPHEREx-", "")}</option>) : <option value="">—</option>}
+                    </select></span></div>
+                    <div className="explorer-image-modes exposure-stretch" role="group" aria-label="Exposure display">
+                      <button type="button" aria-pressed={exposureStretch === "asinh"} onClick={() => { setPreviewFailed(false); setExposureStretch("asinh"); }}>Enhanced</button>
+                      <button type="button" aria-pressed={exposureStretch === "linear"} onClick={() => { setPreviewFailed(false); setExposureStretch("linear"); }}>Linear contrast</button>
                     </div>
-                  )}
-                </section>
-                <aside className="deck-aside">
-                  <section className="card frame-meta"><div className="card-heading"><div><h2>Observation details</h2></div></div>
-                    {frame ? <dl className="meta-list"><div><dt>Exposure ends</dt><dd>{formatDate(frame.observed_end)}</dd></div><div><dt>Product ID</dt><dd>{frame.id}</dd></div><div><dt>DATA RELEASE</dt><dd>{frame.release}</dd></div><div><dt>CHANNEL</dt><dd>{frame.channel}</dd></div><div><dt>WAVELENGTH RANGE</dt><dd>{frame.wavelength_min_um.toFixed(3)}–{frame.wavelength_max_um.toFixed(3)} μm</dd></div><div><dt>VARIANCE</dt><dd>{frame.variance_available == null ? "Not reported" : frame.variance_available ? "Available" : "Not available"}</dd></div></dl> : <EmptyState title="No frame selected" detail="Frame metadata will appear when the archive returns observations." />}
-                    {safeUrl(frame?.product_url) && <a className="record-link" href={safeUrl(frame?.product_url)!} target="_blank" rel="noreferrer">Open source product <span aria-hidden="true">↗</span></a>}
-                    {frame && target && <ShareLink key={frame.id} href={viewLink("explorer", target.id, channel, frame.id)} />}
+                    <figure className="deck-stage">
+                      {frame && target && !previewUnavailable ? <img key={`${frame.id}:${exposureStretch}`} className="deck-image" src={savedPreview ?? previewUrl(target.id, frame.id, exposureStretch)} alt={`Display-only SPHEREx cutout for ${target.name}, observed ${formatDate(frame.observed_at)}. Not a calibrated measurement.`} onError={() => setPreviewFailed(true)} /> : <EmptyState title={previewUnavailable ? "Preview unavailable" : loadingObservations ? "Retrieving archive frames" : "No exposure available"} detail={previewUnavailable ? "The archive cutout could not be loaded." : "Choose a field to view its images."} />}
+                      {frame && !previewUnavailable && <figcaption className="deck-plate-caption">{frame.release} / {frame.channel.replace("SPHEREx-", "")}</figcaption>}
+                    </figure>
+                    {frame && (
+                      <div className="frame-caption">
+                        <span>{savedPreview ? "Saved DR1 preview · " : ""}{exposureStretch === "asinh" ? "Enhanced grayscale · asinh stretch" : "Linear grayscale · 1st–90th percentiles"}</span>
+                        {previewUnavailable && <button className="preview-retry" type="button" onClick={() => setPreviewFailed(false)}>Retry preview</button>}
+                        <DisplayMethodLink kind="previews" />
+                      </div>
+                    )}
                   </section>
-                  <div className="caution-note"><span className="caution-icon" aria-hidden="true">i</span><p>Each cutout uses the same sky coordinates.{target?.id === "barnards-star" && " The star’s motion can move it away from the center between exposures."}</p></div>
-                </aside>
-              </div>
-              {target && hasComposite && (
-                <details className="card explorer-composite" key={target.id}>
-                  <summary>View the false-color composite of this field</summary>
-                  <SkyComposite field={target.id} explorer />
-                </details>
+                  <aside className="deck-aside">
+                    <section className="card frame-meta"><div className="card-heading"><div><h2>Observation details</h2></div></div>
+                      {frame ? <dl className="meta-list"><div><dt>Exposure ends</dt><dd>{formatDate(frame.observed_end)}</dd></div><div><dt>Product ID</dt><dd>{frame.id}</dd></div><div><dt>DATA RELEASE</dt><dd>{frame.release}</dd></div><div><dt>CHANNEL</dt><dd>{frame.channel}</dd></div><div><dt>WAVELENGTH RANGE</dt><dd>{frame.wavelength_min_um.toFixed(3)}–{frame.wavelength_max_um.toFixed(3)} μm</dd></div><div><dt>VARIANCE</dt><dd>{frame.variance_available == null ? "Not reported" : frame.variance_available ? "Available" : "Not available"}</dd></div></dl> : <EmptyState title="No frame selected" detail="Frame metadata will appear when the archive returns observations." />}
+                      {safeUrl(frame?.product_url) && <a className="record-link" href={safeUrl(frame?.product_url)!} target="_blank" rel="noreferrer">Open source product <span aria-hidden="true">↗</span></a>}
+                      {frame && target && !savedCatalog && (
+                        <div className="cutout-links"><a href={`/api/archive/cutout?${new URLSearchParams({ target: target.id, observation_id: frame.id, size: "0.05" })}`}>Download original FITS cutout</a></div>
+                      )}
+                      {frame && target && <ShareLink key={frame.id} href={viewLink("explorer", target.id, channel, frame.id)} />}
+                    </section>
+                    <div className="caution-note"><span className="caution-icon" aria-hidden="true">i</span><p>Each cutout uses the same sky coordinates.{target?.id === "barnards-star" && " The star’s motion can move it away from the center between exposures."}</p></div>
+                  </aside>
+                </div>
               )}
               <CometWalkthrough />
-              <section className="card sequence-strip"><div className="card-heading"><div><h2>Frames in this channel</h2></div><span className="record-count">{channelObservations.length} RECORDS</span></div>
+              <CometHubble />
+              {exposureMode && <section className="card sequence-strip"><div className="card-heading"><div><h2>Frames in this channel</h2></div><span className="record-count">{channelObservations.length} RECORDS</span></div>
                 {channelObservations.length ? <div className="sequence-list">{channelObservations.slice(Math.max(0, frameIndex - 2), frameIndex + 6).map((item, localIndex) => { const index = Math.max(0, frameIndex - 2) + localIndex; return <button type="button" key={item.id} className={`sequence-item ${index === frameIndex ? "is-selected" : ""}`} onClick={() => { setPlaying(false); setFrameIndex(index); }} aria-current={index === frameIndex ? "true" : undefined}><span className="sequence-node" /><span className="sequence-date">{formatDate(item.observed_at, false)}</span><span className="sequence-id">{item.id}</span><span className="sequence-wave">{item.wavelength_min_um.toFixed(2)}–{item.wavelength_max_um.toFixed(2)} μm</span></button>; })}</div> : <EmptyState title="No frames in this channel" detail={message} />}
-              </section>
+              </section>}
             </>
           )}
 

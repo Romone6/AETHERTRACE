@@ -24,10 +24,15 @@ def render(cutouts):
         png = render_cutout_png(payload)
         image_name = f"saved-native-{index}.png"
         (ROOT / image_name).write_bytes(png)
+        linear_name = f"saved-linear-{index}.png"
+        linear = render_cutout_png(payload, stretch="linear")
+        (ROOT / linear_name).write_bytes(linear)
         exposures.append({
             "observation": observation,
             "inspection": inspect_fits_cutout(payload),
             "preview": f"/observations/barnard/{image_name}",
+            "linear_preview": f"/observations/barnard/{linear_name}",
+            "linear_sha256": hashlib.sha256(linear).hexdigest(),
             "input_sha256": digest,
             "preview_sha256": hashlib.sha256(png).hexdigest(),
         })

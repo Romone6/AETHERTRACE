@@ -97,9 +97,10 @@ paths:
         - {name: target, in: query, required: true, schema: {type: string}}
         - {name: observation_id, in: query, required: true, schema: {type: string}}
         - {name: size, in: query, required: false, schema: {type: number, exclusiveMinimum: 0, maximum: 0.1, default: 0.05}}
+        - {name: stretch, in: query, required: false, schema: {type: string, enum: [asinh, linear], default: asinh}}
       responses:
         '200':
-          description: Percentile/asinh display stretch; not a calibrated measurement
+          description: Percentile-clipped display preview with asinh or linear mapping
           content:
             image/png:
               schema: {type: string, format: binary}

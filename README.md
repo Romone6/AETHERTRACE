@@ -2,9 +2,11 @@
 
 A public-facing SPHEREx observation explorer built for the NASA Space Apps **Planet X and SPHEREx** challenge. Step through calibrated source exposures with a shared display scale, inspect what the archive flags, and trace each preview back to its source.
 
-![Three SPHEREx exposures of 3I/ATLAS shown in the Aethertrace timeline](docs/media/comet-demo.gif)
+![Six SPHEREx exposures in the 3I/ATLAS timeline, followed by the Hubble close-up](docs/media/comet-demo.gif)
 
-Try [3I/ATLAS](http://localhost:3000/comet) after starting the app. Step through the three images, reveal coverage gaps, and copy a link to the current exposure and overlays. In [Evidence](http://localhost:3000/evidence#barnard-example), the Barnard’s Star pair shows how mismatched wavelengths and flagged pixels can prevent a brightness measurement.
+[Download the 14-second walkthrough](docs/media/comet-walkthrough.mp4).
+
+Try [3I/ATLAS](http://localhost:3000/comet) after starting the app. Replay six exposures from two passes, reveal coverage gaps, and copy a link to the current exposure and overlays. In [Evidence](http://localhost:3000/evidence#barnard-example), the Barnard’s Star pair shows how mismatched wavelengths and flagged pixels can prevent a brightness measurement.
 
 ## Run the demo
 
@@ -36,13 +38,13 @@ flowchart LR
   E --> G[Comet timeline and Evidence]
 ```
 
-To rebuild the comet sequence, download the three FITS cutouts linked under **Source and processing details** in chronological order. The script checks each input against the pinned SHA-256 before rendering.
+To rebuild either comet pass, download its three FITS cutouts linked under **Source and processing details** in chronological order. For the later pass, append `--manifest apps/web/public/observations/comet/later/processing.json` to the command. The script checks each input against the pinned SHA-256 before rendering.
 
 ```sh
 PYTHONPATH=. .venv/bin/python scripts/render_comet_sequence.py path/to/first.fits path/to/second.fits path/to/third.fits
 ```
 
-Render settings, source links, and checksums are recorded in the [comet manifest](apps/web/public/observations/comet/processing.json) and [Barnard manifest](apps/web/public/observations/barnard/processing.json). The [observation audit](docs/observation-audit.md) explains the cutout request, resampling, quality flags, and scientific limits.
+Render settings, source links, and checksums are recorded in the [first pass manifest](apps/web/public/observations/comet/processing.json), [second pass manifest](apps/web/public/observations/comet/later/processing.json), and [Barnard manifest](apps/web/public/observations/barnard/processing.json). The [observation audit](docs/observation-audit.md) explains the cutout request, resampling, quality flags, and scientific limits.
 
 ## Current status
 
