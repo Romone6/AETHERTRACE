@@ -784,6 +784,10 @@ export default function Explorer({ view }: { view: View }) {
                 </article>
                 <ImageryMethods />
                 <article className="method-step"><div><h2>Scientific comparisons</h2><p>Measuring a change requires matching the wavelength at the target, aligning the images, interpreting pixel flags and accounting for uncertainty. A moving target may also need a different cutout center at each exposure.</p></div></article>
+                <article className="method-step" id="development-disclosure">
+                  <h2>Development disclosure</h2>
+                  <p>OpenAI Codex assisted with the application code, processing scripts, tests, and documentation. The site uses archived observations and deterministic image processing. Amber hatching identifies the estimated pixels in the optional simulated view.</p>
+                </article>
               </div>
               <BarnardMethod />
               <div className="method-links"><a href="https://irsa.ipac.caltech.edu/Missions/spherex.html" target="_blank" rel="noreferrer">SPHEREx at IRSA <span aria-hidden="true">↗</span></a></div>

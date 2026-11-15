@@ -25,7 +25,10 @@
   overflow: hidden;
   border: 0;
   background-color: #dbeafa;
-  background-image: url("/infrared-sky.webp");
+  background-image:
+    radial-gradient(ellipse at -4% 13%, #f5f9fd 0%, transparent 38%),
+    radial-gradient(ellipse at 104% 22%, #f8fbff 0%, transparent 34%),
+    linear-gradient(180deg, #b9d5ef 0%, #deebf8 58%, #eaf2fa 100%);
   background-size: cover;
   background-position: center 43%;
   text-align: center;

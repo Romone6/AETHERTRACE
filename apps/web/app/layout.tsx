@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "Aethertrace | SPHEREx Observation Explorer",
   description:
     "Browse NASA SPHEREx infrared observations, compare image cutouts and explore archive records.",
+  other: {
+    "ai-assistance": "OpenAI Codex assisted with implementation, testing, and documentation. See the Method page for details.",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

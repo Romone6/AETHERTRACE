@@ -1,20 +1,37 @@
 # AETHERTRACE production and submission preflight
 
-Reviewed November 15, 2026 for **Planet X and SPHEREx**, Challenge 12. Space Apps accepts submissions from the Project tab on the team's page until **11:59 p.m. local time on November 15**. Confirm the event and submission fields in the signed-in Project tab. [2026 event timeline](https://www.spaceappschallenge.org/2026/) · [2026 challenge list](https://www.spaceappschallenge.org/2026/challenges/)
+Reviewed November 15, 2026 for **Planet X and SPHEREx**, Challenge 12. Submit before **11:59 p.m. November 15 in your Local Event’s time zone**. For the Universal Event, use the Team Owner’s local time. For a Sydney event or a Sydney-based Universal Event owner, that is 11:59 p.m. AEDT. [Official 2026 Project Submission Guide](https://www.spaceappschallenge.org/resources/project-submission-guide/) · [2026 challenge list](https://www.spaceappschallenge.org/2026/challenges/)
 
-## Project description
+## Project Name
 
-AETHERTRACE lets people browse NASA SPHEREx infrared observations through time. Choose a sky field, inspect its false-color composite, and open an individual exposure with its time, detector, wavelength range, and source record. Replay six December 2025 observations of interstellar comet 3I/ATLAS across two passes, follow the predicted positions, and compare the infrared view with a credited July 2025 Hubble image.
+AETHERTRACE
 
-The Evidence page shows how wavelength differences and quality flags limit what can be inferred from visually aligned Barnard’s Star exposures. The optional simulated completion fills display gaps from their neighboring colors and marks all estimates with amber hatching. The demo supports visual exploration. The original FITS data and further calibration are needed for scientific measurement.
+## High-Level Project Summary
 
-## Project tab links
+AETHERTRACE makes NASA’s SPHEREx infrared archive easier to explore over time. Anyone can browse exposures, replay 3I/ATLAS across six archived frames, and see which measurements are usable in an aligned comparison. The site connects each display to its source so students and curious observers can see where the evidence comes from and what it supports.
 
-- **Project name** — AETHERTRACE
+## Links for the Project tab
+
 - **Challenge** — Planet X and SPHEREx
-- **Live solution** — [aethertrace.vercel.app](https://aethertrace.vercel.app/)
-- **Demonstration** — [14-second walkthrough](https://raw.githubusercontent.com/Romone6/AETHERTRACE/refs/heads/feat/multipage-aethertrace/docs/media/comet-walkthrough.mp4). The [interactive replay](https://aethertrace.vercel.app/comet) follows the same six exposures.
+- **Link to Project Demo** — [28-second English demo](https://aethertrace.vercel.app/demo/aethertrace.mp4) · [GitHub backup](https://raw.githubusercontent.com/Romone6/AETHERTRACE/refs/heads/feat/multipage-aethertrace/apps/web/public/demo/aethertrace.mp4)
+- **Link to Final Project** — [aethertrace.vercel.app](https://aethertrace.vercel.app/)
 - **Source and documentation** — [Audited GitHub branch](https://github.com/Romone6/AETHERTRACE/tree/feat/multipage-aethertrace) · [Public image methods](https://aethertrace.vercel.app/method)
+
+## Detailed Project Description
+
+Explore Orion, Andromeda, the Pleiades, or Barnard’s Star through a false-color composite and individual SPHEREx exposures. The archive preserves exposure time, detector, wavelength range, and source product. Visitors can switch between enhanced grayscale and linear contrast, then open the original FITS cutout when the live archive is available. Saved examples keep the core experience usable during an outage.
+
+The 3I/ATLAS timeline replays six SPHEREx D6 observations from two passes on December 14, 2025. Its marker follows IRSA’s predicted sky positions. A separately credited July 2025 Hubble image shows the comet in visible light. The Barnard’s Star worked example illustrates why time-separated observations can be useful to inspect even when differing wavelengths and flagged center pixels prevent a brightness measurement.
+
+The Next.js frontend uses a Python FastAPI service to query IRSA and render display previews from FITS using Astropy, NumPy, and Pillow. The optional display-space simulation fills gaps by averaging neighboring colors, with every estimate marked by amber hatching. It provides illustrative context. Scientific measurements require calibrated source data and a suitable uncertainty analysis.
+
+## Use of Super Intelligence (SI)
+
+Yes. OpenAI Codex assisted with application code, processing scripts, test automation, and documentation. The site discloses that assistance in its page metadata and Method section. The application displays NASA and ESA archive imagery. The submitted video uses screen captures from the app and the credited Hubble image. The optional gap fill uses deterministic image processing, and its estimated pixels are visibly marked. [Public development disclosure](https://aethertrace.vercel.app/method#development-disclosure)
+
+## NASA Data
+
+NASA SPHEREx Data Release 1 from the NASA/IPAC Infrared Science Archive powers both the archive explorer and the comet replay. The project uses DR1 spectral images for the individual FITS cutouts and the Spectral All-Sky Cube for the four field composites. The IRSA 3I/ATLAS observation table supplies the comet’s predicted positions. [DR1 Spectral Images](https://doi.org/10.26131/IRSA678) · [DR1 Spectral All-Sky Cube](https://doi.org/10.26131/IRSA679) · [IRSA comet archive](https://irsa.ipac.caltech.edu/data/SPHEREx/docs/comet3iatlas/index.html)
 
 ## Release checks
 
@@ -26,17 +43,18 @@ The Evidence page shows how wavelength differences and quality flags limit what 
 | Other flows | All six pages opened. The Barnard example blinked between its epochs, and Evidence supported shared grayscale, enhanced color, and alternative native cutout stretches. The comet replay advanced and froze, a copied link restored the frame and simulation setting, and the Hubble image loaded. An automated axe check found no violations in the tested views. |
 | Dependencies and tests | npm audit reported zero known vulnerabilities. pip-audit flagged Pillow 12.3.0. The backend was upgraded to Pillow 13.0.0 and the repeat scan reported no known vulnerabilities. All 38 Python tests passed. |
 
-## Credits for the project form
+## Space Agency Partner Data and Other References
 
 - NASA SPHEREx DR1 is a NASA-funded JPL and Caltech project. Cite [DR1 Spectral Images, DOI 10.26131/IRSA678](https://doi.org/10.26131/IRSA678) and the [DR1 Spectral All-Sky Cube, DOI 10.26131/IRSA679](https://doi.org/10.26131/IRSA679). Use the mission acknowledgement from the [IRSA DR1 overview](https://irsa.ipac.caltech.edu/data/SPHEREx/docs/overview_dr1.html). The comet track uses predicted positions from the [IRSA 3I/ATLAS archive](https://irsa.ipac.caltech.edu/data/SPHEREx/docs/comet3iatlas/index.html).
 - The Barnard’s Star example uses [ESA Gaia DR3](https://gea.esac.esa.int/archive/) source 4472832130942575872. The [worked example record](../apps/web/public/observations/barnard/processing.json) documents the astrometric propagation and wavelength checks.
 - The Hubble image is credited to NASA, ESA, D. Jewitt (UCLA) and image processing to J. DePasquale (STScI). The image and walkthrough show the credit. [ESA/Hubble image](https://esahubble.org/images/heic2509b/) · [CC BY 4.0 terms](https://esahubble.org/copyright/)
 - The application bundles IBM Plex Sans and Serif under SIL OFL 1.1. Its notice travels with the fonts. [Bundled font notice](../apps/web/public/fonts/OFL.txt) · [IBM Plex source](https://github.com/IBM/plex)
 - Direct runtime libraries include [Next.js](https://github.com/vercel/next.js), [React and React DOM](https://github.com/facebook/react), and [FastAPI](https://github.com/fastapi/fastapi) (MIT), [Uvicorn](https://github.com/encode/uvicorn) and [Astropy](https://github.com/astropy/astropy) (BSD-3-Clause), [NumPy](https://github.com/numpy/numpy) (BSD-3-Clause and bundled component notices), and [Pillow](https://github.com/python-pillow/Pillow) (MIT-CMU). Package distributions contain their full notices.
+- Original AETHERTRACE code uses Apache 2.0. The source repository records the separate rights for reused material and the tools used to build and demonstrate the site. [License and third-party notices](../NOTICE.md)
 
-## Before publishing and submitting
+## Your submission checklist
 
-- [x] Prepare the audited source revision and walkthrough on the submission branch. [Source and media](https://github.com/Romone6/AETHERTRACE/tree/feat/multipage-aethertrace)
-- [ ] Include the third-party credits and license details above. The repository has no project license file. NASA's terms specify Apache 2.0 for original submitted content when the submitter leaves the license unspecified. [Participant terms](https://www.spaceappschallenge.org/legal/)
-- [x] Claim the Vercel deployment and configure the production address. The public homepage responded, and a signed-out browser tested the saved Evidence enhancement flow. The API health endpoint, live Orion catalog, PNG preview, and FITS download responded successfully. [Public AETHERTRACE demo](https://aethertrace.vercel.app/) · [Deployment runbook](deployment.md)
-- [ ] Add the public demo, release source, credits, and [14-second walkthrough](media/comet-walkthrough.mp4) to the project's submission materials. Confirm the source of the decorative homepage sky background before finalizing the credits. Check the selected event's requirements and submit from its Project tab.
+1. Sign in, confirm your event and team, then open **Profile → My Team → Project → Edit**. For global judging, all members must be registered, accepted at the same event, and listed on the team page. The 2026 guide allows one to six members for Local Event teams and two to six for Universal Event teams. [2026 Judging and Awards Guide](https://www.spaceappschallenge.org/resources/judging-awards-guide/)
+2. Select **Planet X and SPHEREx** and fill every required field with the sections above. Use English for the form and linked materials. The guide accepts a public video of 30 seconds or less or an English deck of up to seven slides. A video spoken in another language requires English subtitles. Video and document files are linked from public hosts. The form accepts optional JPG, PNG, or GIF images up to 10 MB.
+3. Confirm the demo and final project both open without sign-in or access requests. Submit materials you have rights to share, include the source and license credits, and omit any likeness of a person under 18. [Participant terms](https://www.spaceappschallenge.org/legal/)
+4. Read the submission requirements, Participant Terms and Conditions, and Privacy Policy. Check **Terms and Conditions** and **Confirm All Work is Original**. Click **Submit for Judging** before the deadline and confirm the success banner. Saving progress alone leaves the project in draft. You can edit and resubmit before the deadline. The team’s latest submission is the one reviewed. [Official 2026 Project Submission Guide](https://www.spaceappschallenge.org/resources/project-submission-guide/)
